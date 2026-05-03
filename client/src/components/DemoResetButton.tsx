@@ -5,6 +5,7 @@ import { useAppDispatch } from '../store/hooks'
 import { resetMockEvents } from '../store/mockEventsSlice'
 import { resetEventDynamicRules } from '../store/eventDynamicRulesSlice'
 import { resetSimulator } from '../store/simulatorSlice'
+import { resetExperienceRefresh } from '../store/experienceRefreshSlice'
 
 export function DemoResetButton() {
   const dispatch = useAppDispatch()
@@ -25,6 +26,7 @@ export function DemoResetButton() {
       dispatch(resetMockEvents())
       dispatch(resetEventDynamicRules())
       dispatch(resetSimulator())
+      dispatch(resetExperienceRefresh())
       await persistor.flush()
     } finally {
       setBusy(false)

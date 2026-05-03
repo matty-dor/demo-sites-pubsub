@@ -2,7 +2,8 @@ import { useMutation } from '@tanstack/react-query'
 import { useCallback, useState } from 'react'
 import { api, ApiError } from '../api/http'
 import { backendStorageEnabled } from '../config/storageMode'
-import { useAppSelector } from '../store/hooks'
+import { useAppDispatch, useAppSelector } from '../store/hooks'
+import { markExperienceAwaitingRefresh } from '../store/experienceRefreshSlice'
 
 const confluentPublishUrl = (import.meta.env.VITE_CONFLUENT_PUBLISH_URL as string | undefined)?.trim()
 
@@ -58,6 +59,7 @@ async function publishViaConfluentRest(input: {
 }
 
 export function useMockEventPublish() {
+  const dispatch = useAppDispatch()
   const backend = backendStorageEnabled()
   const reduxEvents = useAppSelector((s) => s.mockEvents.events)
 
@@ -93,6 +95,7 @@ export function useMockEventPublish() {
       })
     },
     onSuccess: (_data, vars) => {
+      dispatch(markExperienceAwaitingRefresh(vars.id))
       setPublishStatus((s) => ({
         ...s,
         [vars.id]: JSON.stringify(_data, null, 2),
@@ -130,8 +133,9 @@ export function useMockEventPublish() {
         envelope,
       }
       setPublishStatus((s) => ({ ...s, [id]: JSON.stringify(body, null, 2) }))
+      dispatch(markExperienceAwaitingRefresh(id))
     },
-    [backend, publishRemote, reduxEvents],
+    [backend, dispatch, publishRemote, reduxEvents],
   )
 
   return {

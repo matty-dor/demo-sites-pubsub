@@ -1,10 +1,15 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useStore } from 'react-redux'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/http'
 import { backendStorageEnabled } from '../config/storageMode'
 import { useMockEventPublish } from '../hooks/useMockEventPublish'
+import { fetchPersonalizationSnapshot } from '../lib/personalizationClient'
+import type { RootState } from '../store'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
+import { clearExperienceAwaitingRefresh } from '../store/experienceRefreshSlice'
+import { setSimulatedPersonalizationResponse } from '../store/simulatorSlice'
 import { DynamicContentRulesSection } from '../components/DynamicContentRulesSection'
 import { removeRulesForEvent } from '../store/eventDynamicRulesSlice'
 import { removeMockEvent } from '../store/mockEventsSlice'
@@ -24,7 +29,9 @@ type ApiMockEventRow = {
 export function HomePage() {
   const backend = backendStorageEnabled()
   const dispatch = useAppDispatch()
+  const store = useStore()
   const reduxEvents = useAppSelector((s) => s.mockEvents.events)
+  const awaitingByEvent = useAppSelector((s) => s.experienceRefresh.awaitingRefreshByEventId)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['mock-events'],
@@ -49,6 +56,25 @@ export function HomePage() {
 
   const [payloads, setPayloads] = useState<Record<string, Record<string, unknown>>>({})
   const { triggerPublish, publishStatus, publishPending } = useMockEventPublish()
+
+  const refreshPersonalization = useCallback(
+    async (eventId: string) => {
+      const snap = await fetchPersonalizationSnapshot({
+        backend,
+        getState: () => store.getState() as RootState,
+      })
+      dispatch(
+        setSimulatedPersonalizationResponse({
+          ok: snap.ok,
+          status: snap.status ?? 200,
+          data: snap.data,
+          error: snap.error,
+        }),
+      )
+      dispatch(clearExperienceAwaitingRefresh(eventId))
+    },
+    [backend, dispatch, store],
+  )
 
   useEffect(() => {
     setPayloads((prev) => {
@@ -138,7 +164,7 @@ export function HomePage() {
                 </div>
               </details>
               <DynamicContentRulesSection eventId={ev.id} eventName={ev.name} />
-              <div className="mock-event-trigger">
+              <div className="mock-event-trigger mock-event-trigger-row">
                 <button
                   type="button"
                   className="btn btn-primary"
@@ -150,6 +176,15 @@ export function HomePage() {
                 >
                   Trigger {ev.name} Event
                 </button>
+                {awaitingByEvent[ev.id] && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => void refreshPersonalization(ev.id)}
+                  >
+                    Refresh Experience
+                  </button>
+                )}
               </div>
               {publishStatus[ev.id] && (
                 <details className="mock-event-collapsible">

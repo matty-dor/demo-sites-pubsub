@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/http'
+import { MockExperienceLiveRegion } from '../components/MockExperienceLiveRegion'
 import { MockExperienceRulesDefault } from '../components/MockExperienceRulesDefault'
 import { backendStorageEnabled } from '../config/storageMode'
 import { useMockEventPublish } from '../hooks/useMockEventPublish'
@@ -77,8 +78,9 @@ export function MockContentPage() {
     <div className="page">
       <h1>Mock Experiences</h1>
       <p className="lede">
-        Each card mirrors a mock event that has saved Dynamic Content Rules. Trigger the same publish
-        envelope as on Mock Events, and inspect the default content configured for that experience.
+        Each card mirrors a mock event that has saved Dynamic Content Rules. Trigger publish, then{' '}
+        <strong>Refresh Experience</strong> to load the Personalization API and render content from
+        your rules (matched row or default) without flashing placeholder content first.
       </p>
       {emptyHint}
       {backend && isLoading && <p className="muted">Loading…</p>}
@@ -94,9 +96,15 @@ export function MockContentPage() {
               <p className="muted small mock-experience-meta">
                 Mock event: <strong>{ev.name}</strong>
               </p>
-              <div className="mock-experience-default-shell">
-                <MockExperienceRulesDefault rules={rules} />
-              </div>
+              <MockExperienceLiveRegion eventId={ev.id} rules={rules} />
+              <details className="mock-event-collapsible mock-experience-reference">
+                <summary className="mock-event-collapsible-summary">
+                  Saved default <span className="muted">(reference from rules)</span>
+                </summary>
+                <div className="mock-experience-default-shell mock-event-collapsible-inner">
+                  <MockExperienceRulesDefault rules={rules} />
+                </div>
+              </details>
               <div className="mock-event-trigger">
                 <button
                   type="button"

@@ -1,10 +1,21 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
+import {
+  normalizeComparisonOperator,
+  type ComparisonOperator,
+} from '../lib/ruleMatch'
 
-export type MappingRow = { value: string; imageUrl: string }
+export type { ComparisonOperator }
+
+export type MappingRow = {
+  operator: ComparisonOperator
+  value: string
+  imageUrl: string
+}
 
 export type StaticContentType = 'text' | 'imageUrl'
 
 export type StaticMappingRow = {
+  operator: ComparisonOperator
   value: string
   contentType: StaticContentType
   content: string
@@ -32,7 +43,7 @@ export type LegacyDynamicContentState = {
   title?: string
   fieldPath?: string
   defaultImageUrl?: string
-  mappings?: MappingRow[]
+  mappings?: Array<{ value: string; imageUrl: string }>
 }
 
 export function createDefaultDynamicRules(): DynamicContentState {
@@ -41,12 +52,12 @@ export function createDefaultDynamicRules(): DynamicContentState {
     contentSourceMode: 'dynamic',
     fieldPath: 'segment',
     dynamicMappings: [
-      { value: '', imageUrl: '' },
-      { value: '', imageUrl: '' },
+      { operator: 'eq', value: '', imageUrl: '' },
+      { operator: 'eq', value: '', imageUrl: '' },
     ],
     staticMappings: [
-      { value: '', contentType: 'text', content: '' },
-      { value: '', contentType: 'text', content: '' },
+      { operator: 'eq', value: '', contentType: 'text', content: '' },
+      { operator: 'eq', value: '', contentType: 'text', content: '' },
     ],
     defaultDynamicContent: '',
     defaultStatic: { contentType: 'text', content: '' },
@@ -65,9 +76,19 @@ export function normalizeDynamicContentState(
       ...base,
       ...r,
       dynamicMappings:
-        r.dynamicMappings?.length ? r.dynamicMappings : base.dynamicMappings,
+        r.dynamicMappings?.length ?
+          r.dynamicMappings.map((m) => ({
+            ...m,
+            operator: normalizeComparisonOperator(m.operator),
+          }))
+        : base.dynamicMappings,
       staticMappings:
-        r.staticMappings?.length ? r.staticMappings : base.staticMappings,
+        r.staticMappings?.length ?
+          r.staticMappings.map((m) => ({
+            ...m,
+            operator: normalizeComparisonOperator(m.operator),
+          }))
+        : base.staticMappings,
       defaultStatic: r.defaultStatic ?? base.defaultStatic,
       defaultDynamicContent: r.defaultDynamicContent ?? base.defaultDynamicContent,
     }
@@ -76,7 +97,15 @@ export function normalizeDynamicContentState(
   const leg = raw as LegacyDynamicContentState
   const dm =
     leg.mappings?.length ?
-      leg.mappings.map((m) => ({ ...m }))
+      leg.mappings.map((m) => ({
+        operator: normalizeComparisonOperator(
+          'operator' in m ?
+            (m as Partial<MappingRow>).operator
+          : undefined,
+        ),
+        value: m.value,
+        imageUrl: m.imageUrl,
+      }))
     : base.dynamicMappings
   const defImg = leg.defaultImageUrl ?? ''
   return {

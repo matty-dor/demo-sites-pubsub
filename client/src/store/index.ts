@@ -14,12 +14,14 @@ import { mockEventsSlice } from './mockEventsSlice'
 import { eventDynamicRulesSlice } from './eventDynamicRulesSlice'
 import { simulatorSlice } from './simulatorSlice'
 import { brandingSlice } from './brandingSlice'
+import { experienceRefreshSlice } from './experienceRefreshSlice'
 
 const rootReducer = combineReducers({
   mockEvents: mockEventsSlice.reducer,
   eventDynamicRules: eventDynamicRulesSlice.reducer,
   simulator: simulatorSlice.reducer,
   branding: brandingSlice.reducer,
+  experienceRefresh: experienceRefreshSlice.reducer,
 })
 
 const persistConfig = {

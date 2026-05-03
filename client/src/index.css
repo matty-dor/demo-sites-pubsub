@@ -285,7 +285,15 @@ body {
 
 .mapping-row-static {
   display: grid;
-  grid-template-columns: 1fr minmax(9rem, auto) 1.2fr;
+  grid-template-columns: minmax(9rem, 11rem) 1fr minmax(9rem, auto) 1.2fr;
+  gap: 0.65rem;
+  margin-bottom: 0.75rem;
+  align-items: start;
+}
+
+.mapping-row-dynamic {
+  display: grid;
+  grid-template-columns: minmax(9rem, 11rem) 1fr 1fr;
   gap: 0.65rem;
   margin-bottom: 0.75rem;
   align-items: start;
@@ -293,6 +301,10 @@ body {
 
 @media (max-width: 720px) {
   .mapping-row-static {
+    grid-template-columns: 1fr;
+  }
+
+  .mapping-row-dynamic {
     grid-template-columns: 1fr;
   }
 }
@@ -667,6 +679,88 @@ body {
 }
 
 .mock-event-trigger {
+  margin: 0.65rem 0;
+}
+
+.mock-event-trigger-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.mock-experience-live-region {
+  margin: 0.75rem 0;
+  padding: 0.85rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  text-align: left;
+}
+
+.mock-experience-live-heading {
+  margin-top: 0 !important;
+}
+
+.mock-experience-live-lede {
+  margin: 0 0 0.65rem;
+  line-height: 1.45;
+}
+
+.mock-experience-live-placeholder {
+  margin: 0 0 0.75rem;
+}
+
+.mock-experience-live-loading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.mock-experience-live-skeleton {
+  min-height: 120px;
+  border-radius: var(--radius);
+  background: linear-gradient(
+    90deg,
+    var(--border) 0%,
+    color-mix(in srgb, var(--surface) 70%, var(--border)) 50%,
+    var(--border) 100%
+  );
+  background-size: 200% 100%;
+  animation: mock-exp-shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes mock-exp-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+.mock-experience-live-meta {
+  margin: 0 0 0.35rem;
+}
+
+.mock-experience-live-image {
+  max-height: 240px;
+}
+
+.mock-experience-refresh-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+}
+
+.mock-experience-refresh-hint {
+  margin: 0;
+}
+
+.mock-experience-reference {
   margin: 0.65rem 0;
 }
 

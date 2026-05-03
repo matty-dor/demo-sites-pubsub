@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getAtPath } from '../lib/path'
+import {
+  COMPARISON_OPERATORS,
+  type ComparisonOperator,
+  mappingRowMatches,
+  OPERATOR_LABELS,
+} from '../lib/ruleMatch'
 import { isValidHttpUrl } from '../lib/urlValidation'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
 import {
@@ -32,11 +38,11 @@ function buildPanelTitle(eventName: string, suffix: string): string {
 }
 
 function emptyStaticRow(): StaticMappingRow {
-  return { value: '', contentType: 'text', content: '' }
+  return { operator: 'eq', value: '', contentType: 'text', content: '' }
 }
 
 function emptyDynamicRow(): MappingRow {
-  return { value: '', imageUrl: '' }
+  return { operator: 'eq', value: '', imageUrl: '' }
 }
 
 export function DynamicContentRulesSection({ eventId, eventName }: Props) {
@@ -120,8 +126,8 @@ export function DynamicContentRulesSection({ eventId, eventName }: Props) {
       title: buildPanelTitle(eventName, titleSuffix),
       contentSourceMode,
       fieldPath,
-      dynamicMappings: dynamicMappings.filter((m) => m.value || m.imageUrl),
-      staticMappings: staticMappings.filter((m) => m.value || m.content.trim()),
+      dynamicMappings: dynamicMappings.filter((m) => m.value.trim() || m.imageUrl.trim()),
+      staticMappings: staticMappings.filter((m) => m.value.trim() || m.content.trim()),
       defaultDynamicContent,
       defaultStatic,
     }
@@ -135,7 +141,9 @@ export function DynamicContentRulesSection({ eventId, eventName }: Props) {
   const keyStr = keyVal === undefined || keyVal === null ? '' : String(keyVal)
 
   const previewStatic = useMemo(() => {
-    const row = staticMappings.find((m) => m.value && m.value === keyStr)
+    const row = staticMappings.find((m) =>
+      mappingRowMatches(keyVal, m.operator, m.value),
+    )
     let contentType = defaultStatic.contentType
     let raw = defaultStatic.content
     if (row) {
@@ -162,10 +170,12 @@ export function DynamicContentRulesSection({ eventId, eventName }: Props) {
       return { kind: 'text' as const, text: 'Invalid image URL' }
     }
     return { kind: 'image' as const, url: c }
-  }, [staticMappings, defaultStatic, keyStr])
+  }, [staticMappings, defaultStatic, keyVal])
 
   const previewDynamicImage =
-    dynamicMappings.find((m) => m.value && m.value === keyStr)?.imageUrl?.trim() ||
+    dynamicMappings.find((m) =>
+      mappingRowMatches(keyVal, m.operator, m.value),
+    )?.imageUrl?.trim() ||
     defaultDynamicContent.trim() ||
     null
 
@@ -253,10 +263,31 @@ export function DynamicContentRulesSection({ eventId, eventName }: Props) {
             {staticMappings.map((m, i) => (
               <div key={i} className="mapping-row-static">
                 <label className="stack-label mapping-cell">
+                  <span className="muted small">Operator</span>
+                  <select
+                    className="input"
+                    value={m.operator}
+                    onChange={(e) => {
+                      const next = staticMappings.slice()
+                      next[i] = {
+                        ...next[i],
+                        operator: e.target.value as ComparisonOperator,
+                      }
+                      setStaticMappings(next)
+                    }}
+                  >
+                    {COMPARISON_OPERATORS.map((op) => (
+                      <option key={op} value={op}>
+                        {OPERATOR_LABELS[op]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="stack-label mapping-cell">
                   <span className="muted small">Example API Response Value</span>
                   <input
                     className="input"
-                    placeholder="API value (e.g. luxury)"
+                    placeholder="Compare to this value (e.g. luxury or 10)"
                     value={m.value}
                     onChange={(e) => {
                       const next = staticMappings.slice()
@@ -373,28 +404,55 @@ export function DynamicContentRulesSection({ eventId, eventName }: Props) {
           <>
             <h3 className="dynamic-rules-subheading">Value → Image URL</h3>
             {dynamicMappings.map((m, i) => (
-              <div key={i} className="mapping-row">
-                <input
-                  className="input"
-                  placeholder="API value (e.g. luxury)"
-                  value={m.value}
-                  onChange={(e) => {
-                    const next = dynamicMappings.slice()
-                    next[i] = { ...next[i], value: e.target.value }
-                    setDynamicMappings(next)
-                  }}
-                />
-                <input
-                  className={`input ${m.imageUrl.trim() && !isValidHttpUrl(m.imageUrl) ? 'input-invalid' : ''}`}
-                  type="url"
-                  placeholder="Image URL"
-                  value={m.imageUrl}
-                  onChange={(e) => {
-                    const next = dynamicMappings.slice()
-                    next[i] = { ...next[i], imageUrl: e.target.value }
-                    setDynamicMappings(next)
-                  }}
-                />
+              <div key={i} className="mapping-row-dynamic">
+                <label className="stack-label mapping-cell">
+                  <span className="muted small">Operator</span>
+                  <select
+                    className="input"
+                    value={m.operator}
+                    onChange={(e) => {
+                      const next = dynamicMappings.slice()
+                      next[i] = {
+                        ...next[i],
+                        operator: e.target.value as ComparisonOperator,
+                      }
+                      setDynamicMappings(next)
+                    }}
+                  >
+                    {COMPARISON_OPERATORS.map((op) => (
+                      <option key={op} value={op}>
+                        {OPERATOR_LABELS[op]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="stack-label mapping-cell">
+                  <span className="muted small">Example API Response Value</span>
+                  <input
+                    className="input"
+                    placeholder="Compare to this value"
+                    value={m.value}
+                    onChange={(e) => {
+                      const next = dynamicMappings.slice()
+                      next[i] = { ...next[i], value: e.target.value }
+                      setDynamicMappings(next)
+                    }}
+                  />
+                </label>
+                <label className="stack-label mapping-cell">
+                  <span className="muted small">Image URL</span>
+                  <input
+                    className={`input ${m.imageUrl.trim() && !isValidHttpUrl(m.imageUrl) ? 'input-invalid' : ''}`}
+                    type="url"
+                    placeholder="https://…"
+                    value={m.imageUrl}
+                    onChange={(e) => {
+                      const next = dynamicMappings.slice()
+                      next[i] = { ...next[i], imageUrl: e.target.value }
+                      setDynamicMappings(next)
+                    }}
+                  />
+                </label>
               </div>
             ))}
             <button
