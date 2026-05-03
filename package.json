@@ -1,0 +1,10 @@
+{
+  "name": "demo-sites",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "npm run build --prefix client"
+  }
+}

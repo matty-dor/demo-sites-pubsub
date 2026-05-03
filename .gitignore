@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# Build
+dist/
+build/
+*.tsbuildinfo
+
+# Env (never commit secrets)
+.env
+.env.local
+.env.*.local
+
+# Local copy of Shopify → Kafka bridge (often nested git); keep out of this repo’s commits
+example_event_bridge/
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+*.log
