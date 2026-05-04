@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useStore } from 'react-redux'
 import { extractCustomerIdFromPayload } from '../lib/customerIdFromPayload'
 import { fetchPersonalizationSnapshot } from '../lib/personalizationClient'
@@ -14,7 +14,7 @@ import { useAppDispatch, useAppSelector } from '../store/hooks'
 import { clearExperienceAwaitingRefresh } from '../store/experienceRefreshSlice'
 import { setSimulatedPersonalizationResponse } from '../store/simulatorSlice'
 
-type Phase = 'unset' | 'loading' | 'ready'
+type DisplaySource = 'default' | 'refreshed'
 
 type Props = {
   eventId: string
@@ -76,101 +76,99 @@ export function MockExperienceLiveRegion({ eventId, eventSchema, rules }: Props)
     (s) => s.experienceRefresh.awaitingRefreshByEventId[eventId],
   )
 
-  const [phase, setPhase] = useState<Phase>('unset')
-  const [liveView, setLiveView] = useState<LiveExperienceView | null>(null)
-  /** Last profile payload from Refresh — reused so Reset applies defaults without a new API call. */
-  const lastPersonalizationDataRef = useRef<unknown>(undefined)
-  const hasCompletedRefreshRef = useRef(false)
+  const [personalizationData, setPersonalizationData] = useState<unknown>(undefined)
+  const [displaySource, setDisplaySource] = useState<DisplaySource>('default')
+  const [loading, setLoading] = useState(false)
+  const [hasEverRefreshed, setHasEverRefreshed] = useState(false)
 
   useEffect(() => {
-    lastPersonalizationDataRef.current = undefined
-    hasCompletedRefreshRef.current = false
-    setPhase('unset')
-    setLiveView(null)
+    setPersonalizationData(undefined)
+    setDisplaySource('default')
+    setHasEverRefreshed(false)
+    setLoading(false)
   }, [eventId])
 
-  const showRefresh =
-    Boolean(awaitingRefresh) || phase === 'ready' || phase === 'loading'
+  const liveView = useMemo((): LiveExperienceView => {
+    if (displaySource === 'default') {
+      return resolveLiveExperience(rules, personalizationData, { forceDefault: true })
+    }
+    return resolveLiveExperience(rules, personalizationData)
+  }, [rules, displaySource, personalizationData])
+
+  const showRefresh = Boolean(awaitingRefresh) || loading || hasEverRefreshed
 
   const runRefresh = useCallback(async () => {
-    setPhase('loading')
-    setLiveView(null)
+    setLoading(true)
 
     const state = store.getState() as RootState
     const payload =
       state.eventPayloads.byEventId[eventId] ?? buildDefaultPayload(eventSchema)
     const cid = extractCustomerIdFromPayload(eventSchema, payload)
 
-    const snap = await fetchPersonalizationSnapshot({
-      getState: () => store.getState() as RootState,
-      customerIdFromMockEvent: cid ?? '',
-    })
+    try {
+      const snap = await fetchPersonalizationSnapshot({
+        getState: () => store.getState() as RootState,
+        customerIdFromMockEvent: cid ?? '',
+      })
 
-    dispatch(
-      setSimulatedPersonalizationResponse({
-        ok: snap.ok,
-        status: snap.status ?? 200,
-        data: snap.data,
-        error: snap.error,
-      }),
-    )
-    dispatch(clearExperienceAwaitingRefresh(eventId))
+      dispatch(
+        setSimulatedPersonalizationResponse({
+          ok: snap.ok,
+          status: snap.status ?? 200,
+          data: snap.data,
+          error: snap.error,
+        }),
+      )
+      dispatch(clearExperienceAwaitingRefresh(eventId))
 
-    lastPersonalizationDataRef.current = snap.data
-    hasCompletedRefreshRef.current = true
-    const view = resolveLiveExperience(rules, snap.data)
-    setLiveView(view)
-    setPhase('ready')
-  }, [dispatch, eventId, eventSchema, rules, store])
+      setPersonalizationData(snap.data)
+      setDisplaySource('refreshed')
+      setHasEverRefreshed(true)
+    } finally {
+      setLoading(false)
+    }
+  }, [dispatch, eventId, eventSchema, store])
 
   const resetToDefaultExperience = useCallback(() => {
-    if (!hasCompletedRefreshRef.current) return
-    setLiveView(
-      resolveLiveExperience(rules, lastPersonalizationDataRef.current, {
-        forceDefault: true,
-      }),
-    )
-  }, [rules])
+    if (!hasEverRefreshed) return
+    setDisplaySource('default')
+  }, [hasEverRefreshed])
 
   return (
     <div className="mock-experience-live-region">
       <h3 className="dynamic-rules-subheading mock-experience-live-heading">Live experience</h3>
       <p className="muted small mock-experience-live-lede">
-        After a successful trigger, refresh calls the Personalization API using{' '}
-        <strong>customer_id</strong> from this event&apos;s payload (same values as on the Mock
-        Events card), resolves <code>{rules.fieldPath || '…'}</code>, and renders one outcome — no
-        default-then-swap flash.
+        Saved <strong>default</strong> content shows here immediately. After you trigger,{' '}
+        <strong>Refresh Experience</strong> loads the Personalization API (via{' '}
+        <strong>customer_id</strong> from this event&apos;s payload) and resolves{' '}
+        <code>{rules.fieldPath || '…'}</code>
+        — if the result differs from default, that outcome is shown.{' '}
+        <strong>Reset to Default Experience</strong> returns to the saved default using the same last
+        API response (no new request).
       </p>
 
-      {phase === 'unset' && !awaitingRefresh && (
+      {awaitingRefresh && !loading && !hasEverRefreshed && (
         <p className="muted small mock-experience-live-placeholder">
-          Trigger this event first. When publish succeeds, use <strong>Refresh Experience</strong>{' '}
-          to load content from the Personalization API.
+          Publish succeeded — use <strong>Refresh Experience</strong> when you want to fetch
+          personalization for this card.
         </p>
       )}
 
-      {phase === 'unset' && awaitingRefresh && (
-        <p className="muted small mock-experience-live-placeholder">
-          Publish succeeded — click <strong>Refresh Experience</strong> to fetch personalization and
-          render this card.
-        </p>
-      )}
-
-      {phase === 'loading' && (
+      {loading && (
         <div className="mock-experience-live-loading" aria-busy="true">
           <div className="mock-experience-live-skeleton" />
           <span className="muted small">Loading personalization…</span>
         </div>
       )}
 
-      {phase === 'ready' && liveView && <LiveRender view={liveView} />}
+      {!loading && <LiveRender view={liveView} />}
 
       {showRefresh && (
         <div className="mock-experience-refresh-row">
           <button
             type="button"
             className="btn btn-secondary"
-            disabled={phase === 'loading'}
+            disabled={loading}
             onClick={() => void runRefresh()}
           >
             Refresh Experience
@@ -178,13 +176,13 @@ export function MockExperienceLiveRegion({ eventId, eventSchema, rules }: Props)
           <button
             type="button"
             className="btn btn-secondary"
-            disabled={phase !== 'ready'}
+            disabled={!hasEverRefreshed || loading}
             onClick={resetToDefaultExperience}
             title="Show saved default content using the same personalization response (no new API call)"
           >
             Reset to Default Experience
           </button>
-          {awaitingRefresh && phase !== 'loading' && (
+          {awaitingRefresh && !loading && (
             <span className="muted small mock-experience-refresh-hint">
               Recommended after your latest trigger.
             </span>
