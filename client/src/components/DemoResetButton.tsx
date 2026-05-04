@@ -6,6 +6,7 @@ import { resetMockEvents } from '../store/mockEventsSlice'
 import { resetEventDynamicRules } from '../store/eventDynamicRulesSlice'
 import { resetSimulator } from '../store/simulatorSlice'
 import { resetExperienceRefresh } from '../store/experienceRefreshSlice'
+import { resetEventPayloads } from '../store/eventPayloadsSlice'
 
 export function DemoResetButton() {
   const dispatch = useAppDispatch()
@@ -16,7 +17,7 @@ export function DemoResetButton() {
   const reset = useCallback(async () => {
     if (
       !window.confirm(
-        'Clear all mock events, dynamic content rules, and simulated personalization data in this browser?',
+        'Clear all mock events, event payloads, dynamic content rules, and simulated personalization data in this browser?',
       )
     ) {
       return
@@ -24,6 +25,7 @@ export function DemoResetButton() {
     setBusy(true)
     try {
       dispatch(resetMockEvents())
+      dispatch(resetEventPayloads())
       dispatch(resetEventDynamicRules())
       dispatch(resetSimulator())
       dispatch(resetExperienceRefresh())

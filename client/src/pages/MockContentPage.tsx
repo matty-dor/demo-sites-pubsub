@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/http'
@@ -8,7 +8,8 @@ import { backendStorageEnabled } from '../config/storageMode'
 import { useMockEventPublish } from '../hooks/useMockEventPublish'
 import { alignPayloadToMockSchema } from '../lib/payloadAlign'
 import { buildDefaultPayload } from '../lib/schemaDefaults'
-import { useAppSelector } from '../store/hooks'
+import { ensureDefaultPayloadForEvent } from '../store/eventPayloadsSlice'
+import { useAppDispatch, useAppSelector } from '../store/hooks'
 import type { SchemaNode } from '../types/schema'
 
 type ApiMockEventRow = {
@@ -20,8 +21,10 @@ type ApiMockEventRow = {
 
 export function MockContentPage() {
   const backend = backendStorageEnabled()
+  const dispatch = useAppDispatch()
   const reduxEvents = useAppSelector((s) => s.mockEvents.events)
   const rulesByEventId = useAppSelector((s) => s.eventDynamicRules.byEventId)
+  const payloadsById = useAppSelector((s) => s.eventPayloads.byEventId)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['mock-events'],
@@ -50,6 +53,17 @@ export function MockContentPage() {
   )
 
   const { triggerPublish, publishStatus, publishPending } = useMockEventPublish()
+
+  useEffect(() => {
+    for (const ev of experienceEvents) {
+      dispatch(
+        ensureDefaultPayloadForEvent({
+          eventId: ev.id,
+          schema: ev.schema ?? [],
+        }),
+      )
+    }
+  }, [dispatch, experienceEvents])
 
   const emptyHint = useMemo(
     () =>
@@ -96,7 +110,11 @@ export function MockContentPage() {
               <p className="muted small mock-experience-meta">
                 Mock event: <strong>{ev.name}</strong>
               </p>
-              <MockExperienceLiveRegion eventId={ev.id} rules={rules} />
+              <MockExperienceLiveRegion
+                eventId={ev.id}
+                eventSchema={schema}
+                rules={rules}
+              />
               <details className="mock-event-collapsible mock-experience-reference">
                 <summary className="mock-event-collapsible-summary">
                   Saved default <span className="muted">(reference from rules)</span>
@@ -111,10 +129,9 @@ export function MockContentPage() {
                   className="btn btn-primary"
                   disabled={backend && publishPending}
                   onClick={() => {
-                    const aligned = alignPayloadToMockSchema(
-                      schema,
-                      buildDefaultPayload(schema),
-                    )
+                    const raw =
+                      payloadsById[ev.id] ?? buildDefaultPayload(schema)
+                    const aligned = alignPayloadToMockSchema(schema, raw)
                     triggerPublish(ev.id, aligned, ev.name)
                   }}
                 >

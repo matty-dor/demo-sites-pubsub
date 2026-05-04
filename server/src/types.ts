@@ -28,10 +28,24 @@ export type SchemaNode = {
   item?: SchemaNode;
 };
 
-export const mockEventSchema = z.object({
-  name: z.string().min(1),
-  schema: z.array(schemaNodeSchema),
-});
+export const mockEventSchema = z
+  .object({
+    name: z.string().min(1),
+    schema: z.array(schemaNodeSchema),
+  })
+  .superRefine((data, ctx) => {
+    const hasCustomerId = data.schema.some(
+      (n) => n.key === 'customer_id' && n.type === 'string',
+    )
+    if (!hasCustomerId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'Schema must include a root field named customer_id with type string',
+        path: ['schema'],
+      })
+    }
+  });
 
 export type MockEventInput = z.infer<typeof mockEventSchema>;
 

@@ -1,12 +1,14 @@
 import { useCallback, useState } from 'react'
 import { useStore } from 'react-redux'
-import { backendStorageEnabled } from '../config/storageMode'
+import { extractCustomerIdFromPayload } from '../lib/customerIdFromPayload'
 import { fetchPersonalizationSnapshot } from '../lib/personalizationClient'
+import { buildDefaultPayload } from '../lib/schemaDefaults'
 import {
   resolveLiveExperience,
   type LiveExperienceView,
 } from '../lib/experienceResolve'
 import type { DynamicContentState } from '../store/eventDynamicRulesSlice'
+import type { SchemaNode } from '../types/schema'
 import type { RootState } from '../store'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
 import { clearExperienceAwaitingRefresh } from '../store/experienceRefreshSlice'
@@ -16,6 +18,8 @@ type Phase = 'unset' | 'loading' | 'ready'
 
 type Props = {
   eventId: string
+  /** Same schema as the mock event card — used to read customer_id from the shared payload store. */
+  eventSchema: SchemaNode[]
   rules: DynamicContentState
 }
 
@@ -65,8 +69,7 @@ function LiveRender({ view }: { view: LiveExperienceView }) {
   )
 }
 
-export function MockExperienceLiveRegion({ eventId, rules }: Props) {
-  const backend = backendStorageEnabled()
+export function MockExperienceLiveRegion({ eventId, eventSchema, rules }: Props) {
   const dispatch = useAppDispatch()
   const store = useStore()
   const awaitingRefresh = useAppSelector(
@@ -83,9 +86,14 @@ export function MockExperienceLiveRegion({ eventId, rules }: Props) {
     setPhase('loading')
     setLiveView(null)
 
+    const state = store.getState() as RootState
+    const payload =
+      state.eventPayloads.byEventId[eventId] ?? buildDefaultPayload(eventSchema)
+    const cid = extractCustomerIdFromPayload(eventSchema, payload)
+
     const snap = await fetchPersonalizationSnapshot({
-      backend,
       getState: () => store.getState() as RootState,
+      customerIdFromMockEvent: cid ?? '',
     })
 
     dispatch(
@@ -101,14 +109,15 @@ export function MockExperienceLiveRegion({ eventId, rules }: Props) {
     const view = resolveLiveExperience(rules, snap.data)
     setLiveView(view)
     setPhase('ready')
-  }, [backend, dispatch, eventId, rules, store])
+  }, [dispatch, eventId, eventSchema, rules, store])
 
   return (
     <div className="mock-experience-live-region">
       <h3 className="dynamic-rules-subheading mock-experience-live-heading">Live experience</h3>
       <p className="muted small mock-experience-live-lede">
-        After a successful trigger, refresh loads the Personalization API (or simulated payload in
-        local mode), resolves <code>{rules.fieldPath || '…'}</code>, and shows one outcome — no
+        After a successful trigger, refresh calls the Personalization API using{' '}
+        <strong>customer_id</strong> from this event&apos;s payload (same values as on the Mock
+        Events card), resolves <code>{rules.fieldPath || '…'}</code>, and renders one outcome — no
         default-then-swap flash.
       </p>
 

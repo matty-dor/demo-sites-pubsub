@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import { useStore } from 'react-redux'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
@@ -12,6 +12,12 @@ import { clearExperienceAwaitingRefresh } from '../store/experienceRefreshSlice'
 import { setSimulatedPersonalizationResponse } from '../store/simulatorSlice'
 import { DynamicContentRulesSection } from '../components/DynamicContentRulesSection'
 import { removeRulesForEvent } from '../store/eventDynamicRulesSlice'
+import { extractCustomerIdFromPayload } from '../lib/customerIdFromPayload'
+import {
+  ensureDefaultPayloadForEvent,
+  removePayloadForEvent,
+  setPayloadForEvent,
+} from '../store/eventPayloadsSlice'
 import { removeMockEvent } from '../store/mockEventsSlice'
 import type { SchemaNode } from '../types/schema'
 import { alignPayloadToMockSchema } from '../lib/payloadAlign'
@@ -32,6 +38,7 @@ export function HomePage() {
   const store = useStore()
   const reduxEvents = useAppSelector((s) => s.mockEvents.events)
   const awaitingByEvent = useAppSelector((s) => s.experienceRefresh.awaitingRefreshByEventId)
+  const payloadsById = useAppSelector((s) => s.eventPayloads.byEventId)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['mock-events'],
@@ -54,14 +61,17 @@ export function HomePage() {
     }))
   }, [backend, data?.events, reduxEvents])
 
-  const [payloads, setPayloads] = useState<Record<string, Record<string, unknown>>>({})
   const { triggerPublish, publishStatus, publishPending } = useMockEventPublish()
 
   const refreshPersonalization = useCallback(
-    async (eventId: string) => {
+    async (eventId: string, schema: SchemaNode[]) => {
+      const state = store.getState() as RootState
+      const payload =
+        state.eventPayloads.byEventId[eventId] ?? buildDefaultPayload(schema)
+      const cid = extractCustomerIdFromPayload(schema, payload)
       const snap = await fetchPersonalizationSnapshot({
-        backend,
         getState: () => store.getState() as RootState,
+        customerIdFromMockEvent: cid ?? '',
       })
       dispatch(
         setSimulatedPersonalizationResponse({
@@ -73,20 +83,19 @@ export function HomePage() {
       )
       dispatch(clearExperienceAwaitingRefresh(eventId))
     },
-    [backend, dispatch, store],
+    [dispatch, store],
   )
 
   useEffect(() => {
-    setPayloads((prev) => {
-      const next = { ...prev }
-      for (const ev of events) {
-        if (!next[ev.id]) {
-          next[ev.id] = buildDefaultPayload(ev.schema ?? [])
-        }
-      }
-      return next
-    })
-  }, [events])
+    for (const ev of events) {
+      dispatch(
+        ensureDefaultPayloadForEvent({
+          eventId: ev.id,
+          schema: ev.schema ?? [],
+        }),
+      )
+    }
+  }, [dispatch, events])
 
   const emptyHint = useMemo(
     () =>
@@ -132,7 +141,7 @@ export function HomePage() {
       <div className="event-grid">
         {events.map((ev) => {
           const schema = ev.schema ?? []
-          const payload = payloads[ev.id] ?? buildDefaultPayload(schema)
+          const payload = payloadsById[ev.id] ?? buildDefaultPayload(schema)
           return (
             <article key={ev.id} className="card">
               <div className="card-head">
@@ -144,6 +153,7 @@ export function HomePage() {
                     onClick={() => {
                       dispatch(removeMockEvent(ev.id))
                       dispatch(removeRulesForEvent(ev.id))
+                      dispatch(removePayloadForEvent(ev.id))
                     }}
                   >
                     Delete
@@ -159,7 +169,9 @@ export function HomePage() {
                   <PayloadEditor
                     schema={schema}
                     value={payload}
-                    onChange={(next) => setPayloads((p) => ({ ...p, [ev.id]: next }))}
+                    onChange={(next) =>
+                      dispatch(setPayloadForEvent({ eventId: ev.id, payload: next }))
+                    }
                   />
                 </div>
               </details>
@@ -180,7 +192,7 @@ export function HomePage() {
                   <button
                     type="button"
                     className="btn btn-secondary"
-                    onClick={() => void refreshPersonalization(ev.id)}
+                    onClick={() => void refreshPersonalization(ev.id, schema)}
                   >
                     Refresh Experience
                   </button>

@@ -15,6 +15,7 @@ import { eventDynamicRulesSlice } from './eventDynamicRulesSlice'
 import { simulatorSlice } from './simulatorSlice'
 import { brandingSlice } from './brandingSlice'
 import { experienceRefreshSlice } from './experienceRefreshSlice'
+import { eventPayloadsSlice } from './eventPayloadsSlice'
 
 const rootReducer = combineReducers({
   mockEvents: mockEventsSlice.reducer,
@@ -22,12 +23,13 @@ const rootReducer = combineReducers({
   simulator: simulatorSlice.reducer,
   branding: brandingSlice.reducer,
   experienceRefresh: experienceRefreshSlice.reducer,
+  eventPayloads: eventPayloadsSlice.reducer,
 })
 
 const persistConfig = {
   key: 'growthloop-poc',
   storage: persistStorage,
-  whitelist: ['mockEvents', 'eventDynamicRules', 'simulator', 'branding'],
+  whitelist: ['mockEvents', 'eventDynamicRules', 'simulator', 'branding', 'eventPayloads'],
 }
 
 const persistedReducer = persistReducer(persistConfig, rootReducer)

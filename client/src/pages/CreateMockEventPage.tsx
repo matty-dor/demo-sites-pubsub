@@ -5,6 +5,10 @@ import { api, ApiError } from '../api/http'
 import { backendStorageEnabled } from '../config/storageMode'
 import { useAppDispatch } from '../store/hooks'
 import { addMockEvent } from '../store/mockEventsSlice'
+import {
+  CUSTOMER_ID_SCHEMA_HINT,
+  schemaHasRequiredCustomerId,
+} from '../lib/mockEventSchemaRules'
 import type { SchemaNode } from '../types/schema'
 import { SchemaEditor } from '../components/SchemaEditor'
 
@@ -34,6 +38,10 @@ export function CreateMockEventPage() {
   function save() {
     setError(null)
     if (!name.trim() || schema.length === 0) return
+    if (!schemaHasRequiredCustomerId(schema)) {
+      setError(CUSTOMER_ID_SCHEMA_HINT)
+      return
+    }
     if (backend) {
       saveRemote.mutate()
       return

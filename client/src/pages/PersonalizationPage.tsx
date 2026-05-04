@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { api, ApiError } from '../api/http'
-import { backendStorageEnabled } from '../config/storageMode'
+import { personalizationHttpEnabled } from '../config/storageMode'
 import { useAppDispatch } from '../store/hooks'
 import {
   setLastPersonalizationCustomerId,
@@ -22,13 +22,13 @@ function localStubResponse(customerId: string): ProxyResponse {
     data: {
       customer_id: customerId,
       _localDemo:
-        'Stub only — no backend. Set VITE_USE_BACKEND=true and configure the server (PERSONALIZATION_API_BASE_URL, PERSONALIZATION_API_PATH_TEMPLATE with {{customerId}}, PERSONALIZATION_API_KEY) for live Personalization API calls.',
+        'Stub only — no HTTP proxy. Set VITE_USE_BACKEND=true (Fastify) or VITE_USE_VERCEL_API=true (same-origin api/personalization.js), with PERSONALIZATION_* env on the server/Vercel.',
     },
   }
 }
 
 export function PersonalizationPage() {
-  const backend = backendStorageEnabled()
+  const useHttpProxy = personalizationHttpEnabled()
   const dispatch = useAppDispatch()
   const [customerId, setCustomerId] = useState('')
   const [lastResponse, setLastResponse] = useState<ProxyResponse | null>(null)
@@ -40,7 +40,7 @@ export function PersonalizationPage() {
         throw new Error('Enter a customer_id.')
       }
 
-      if (backend) {
+      if (useHttpProxy) {
         const res = await api<ProxyResponse>('/api/personalization', {
           method: 'POST',
           body: JSON.stringify({ customerId: id }),
@@ -69,13 +69,14 @@ export function PersonalizationPage() {
     <div className="page">
       <h1>Personalization API</h1>
       <p className="lede">
-        Enter a <strong>customer_id</strong> and fetch. The demo backend substitutes it into the path
-        from <code>PERSONALIZATION_API_PATH_TEMPLATE</code> (must include{' '}
-        <code>{'{{customerId}}'}</code>), calls your GrowthLoop Personalization API with{' '}
-        <code>PERSONALIZATION_API_KEY</code> server-side, and shows the JSON below.
+        Enter a <strong>customer_id</strong> and fetch. The server substitutes it into{' '}
+        <code>PERSONALIZATION_API_PATH_TEMPLATE</code> (must include{' '}
+        <code>{'{{customerId}}'}</code>), calls GrowthLoop with{' '}
+        <code>PERSONALIZATION_API_KEY</code> (never exposed to the browser), and shows the JSON
+        below.
       </p>
 
-      {!backend && (
+      {!useHttpProxy && (
         <div className="banner banner-success">
           Local mode: the button applies a small stub JSON to the store (for Dynamic Content Rules /
           Refresh Experience). Enable the backend for real API calls.

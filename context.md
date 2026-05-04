@@ -12,7 +12,7 @@ A **GrowthLoop-style PoC demo**: mock events (schemas + payloads), optional publ
 |------|------|------|
 | UI | `client/` | Vite + React + TS, Redux + persist, TanStack Query |
 | API (optional) | `server/` | Fastify: mock events (Supabase), personalization proxy, optional KafkaJS publish |
-| Vercel publish | `api/publish.js`, `vercel.json` | Serverless **Confluent Kafka REST** producer (Option A) |
+| Vercel serverless | `api/publish.js`, `api/personalization.js`, `vercel.json` | Kafka REST publish + GrowthLoop personalization proxy (secrets in Vercel env only) |
 | Reference only | `example_event_bridge/` | Example Shopify→Kafka Python app — **gitignored** at repo root (see `.gitignore`) |
 
 ## Major behaviors implemented
@@ -44,8 +44,13 @@ A **GrowthLoop-style PoC demo**: mock events (schemas + payloads), optional publ
 ### Post-trigger refresh pipeline
 
 - `experienceRefresh` slice: `awaitingRefreshByEventId` set on publish **success** (`useMockEventPublish`), cleared after Refresh.
-- **Refresh** calls `fetchPersonalizationSnapshot` (`client/src/lib/personalizationClient.ts`): backend → `POST /api/personalization` with **GET `/`**; local → simulated store after a paint tick.
+- **Refresh** calls `fetchPersonalizationSnapshot`: `personalizationHttpEnabled()` → `POST /api/personalization` with `{ customerId }` when `lastPersonalizationCustomerId` is set (or Fastify generic GET `/` when `VITE_USE_BACKEND` only); otherwise simulated store after a paint tick.
 - Updates `simulator.personalizationResponse` so Mock Events preview stays aligned.
+
+### Vercel vs Fastify env split
+
+- **`VITE_USE_BACKEND=true`** — mock events load/save via Fastify **`/api/mock-events`** (needs Supabase). Do **not** use alone on pure Vercel static + functions (those routes 404).
+- **`VITE_USE_VERCEL_API=true`** with **`VITE_USE_BACKEND` unset/false** — mock events stay **Redux/localStorage**; **`/api/personalization`** uses **`api/personalization.js`** on Vercel. Pair with `PERSONALIZATION_*` in Vercel env.
 
 ### Other copy / UX notes
 
@@ -56,11 +61,13 @@ A **GrowthLoop-style PoC demo**: mock events (schemas + payloads), optional publ
 
 ### Vercel (project)
 
-**Runtime (function `api/publish.js`):**  
-`KAFKA_REST_HOST`, `KAFKA_CLUSTER_ID`, `KAFKA_API_KEY`, `KAFKA_API_SECRET`, optional `KAFKA_TOPIC`, optional `PUBLISH_INGRESS_SECRET`, optional `ALLOWED_ORIGINS`.
+**Runtime (functions):**  
+`api/publish.js`: Kafka REST vars as before.  
+`api/personalization.js`: `PERSONALIZATION_API_BASE_URL`, `PERSONALIZATION_API_PATH_TEMPLATE` (must include `{{customerId}}`), `PERSONALIZATION_API_KEY`; optional `ALLOWED_ORIGINS`.
 
 **Build (Vite client):**  
-`VITE_CONFLUENT_PUBLISH_URL` — recommend **`/api/publish`** on same deployment; optional `VITE_PUBLISH_INGRESS_SECRET` if ingress secret is set.
+`VITE_CONFLUENT_PUBLISH_URL` — recommend **`/api/publish`**.  
+`VITE_USE_VERCEL_API=true` for personalization proxy **without** full backend (see split above). Do **not** set `VITE_USE_BACKEND=true` on Vercel unless Fastify hosts mock-events API.
 
 ### Local client (`client/.env.example`)
 
