@@ -842,3 +842,19 @@ code {
 a {
   color: var(--accent);
 }
+
+.personalization-customer-form {
+  max-width: 28rem;
+}
+
+.personalization-response-section {
+  margin-top: 1.5rem;
+  text-align: left;
+}
+
+.personalization-response-heading {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--muted);
+}

@@ -23,6 +23,8 @@ export const env = {
 
   personalizationBaseUrl: optional('PERSONALIZATION_API_BASE_URL'),
   personalizationApiKey: optional('PERSONALIZATION_API_KEY'),
+  /** Path appended to base with {{customerId}} replaced (encodeURIComponent). Example: v1/users/{{customerId}}/traits */
+  personalizationPathTemplate: optional('PERSONALIZATION_API_PATH_TEMPLATE'),
 
   kafkaBrokers: optional('KAFKA_BROKERS'),
   kafkaTopic: optional('KAFKA_TOPIC'),

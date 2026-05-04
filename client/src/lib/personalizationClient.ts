@@ -19,12 +19,18 @@ export async function fetchPersonalizationSnapshot(params: {
 }): Promise<{ ok: boolean; status?: number; data?: unknown; error?: string }> {
   if (params.backend) {
     try {
+      const lastId = params.getState().simulator.lastPersonalizationCustomerId?.trim()
+      const body =
+        lastId ?
+          JSON.stringify({ customerId: lastId })
+        : JSON.stringify({
+            path: params.path ?? '/',
+            method: 'GET',
+          })
+
       const res = await api<ProxyResponse>('/api/personalization', {
         method: 'POST',
-        body: JSON.stringify({
-          path: params.path ?? '/',
-          method: 'GET',
-        }),
+        body,
       })
       return {
         ok: res.ok !== false,

@@ -10,6 +10,8 @@ export type SimulatedPersonalizationResponse = {
 
 export type SimulatorState = {
   personalizationResponse: SimulatedPersonalizationResponse | null
+  /** Last customer_id used on the Personalization page — Refresh Experience uses this when backend is on. */
+  lastPersonalizationCustomerId: string | null
 }
 
 const initialState: SimulatorState = {
@@ -18,9 +20,10 @@ const initialState: SimulatorState = {
     status: 200,
     data: {
       segment: 'variant_a',
-      message: 'Simulated personalization payload — edit on the Personalization API page.',
+      message: 'Use the Personalization API page to fetch by customer_id.',
     },
   },
+  lastPersonalizationCustomerId: null,
 }
 
 export const simulatorSlice = createSlice({
@@ -33,9 +36,15 @@ export const simulatorSlice = createSlice({
     ) => {
       state.personalizationResponse = action.payload
     },
+    setLastPersonalizationCustomerId: (state, action: PayloadAction<string | null>) => {
+      state.lastPersonalizationCustomerId = action.payload
+    },
     resetSimulator: () => initialState,
   },
 })
 
-export const { setSimulatedPersonalizationResponse, resetSimulator } =
-  simulatorSlice.actions
+export const {
+  setSimulatedPersonalizationResponse,
+  setLastPersonalizationCustomerId,
+  resetSimulator,
+} = simulatorSlice.actions

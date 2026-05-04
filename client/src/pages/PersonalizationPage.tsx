@@ -1,9 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import { api, ApiError } from '../api/http'
 import { backendStorageEnabled } from '../config/storageMode'
-import { useAppDispatch, useAppSelector } from '../store/hooks'
-import { setSimulatedPersonalizationResponse } from '../store/simulatorSlice'
+import { useAppDispatch } from '../store/hooks'
+import {
+  setLastPersonalizationCustomerId,
+  setSimulatedPersonalizationResponse,
+} from '../store/simulatorSlice'
 
 type ProxyResponse = {
   ok?: boolean
@@ -12,188 +15,111 @@ type ProxyResponse = {
   error?: string
 }
 
+function localStubResponse(customerId: string): ProxyResponse {
+  return {
+    ok: true,
+    status: 200,
+    data: {
+      customer_id: customerId,
+      _localDemo:
+        'Stub only — no backend. Set VITE_USE_BACKEND=true and configure the server (PERSONALIZATION_API_BASE_URL, PERSONALIZATION_API_PATH_TEMPLATE with {{customerId}}, PERSONALIZATION_API_KEY) for live Personalization API calls.',
+    },
+  }
+}
+
 export function PersonalizationPage() {
   const backend = backendStorageEnabled()
   const dispatch = useAppDispatch()
-  const simulatedFromStore = useAppSelector((s) => s.simulator.personalizationResponse)
-
-  const [path, setPath] = useState('/')
-  const [method, setMethod] = useState<'GET' | 'POST' | 'PUT' | 'PATCH'>('GET')
-  const [bodyText, setBodyText] = useState('{}')
-  const [poll, setPoll] = useState(false)
-
-  const [simDraft, setSimDraft] = useState('')
-
-  useEffect(() => {
-    if (backend) return
-    setSimDraft(
-      JSON.stringify(
-        simulatedFromStore ?? { ok: true, status: 200, data: {} },
-        null,
-        2,
-      ),
-    )
-  }, [backend, simulatedFromStore])
-
-  const parsedBody = useMemo(() => {
-    try {
-      return JSON.parse(bodyText || '{}') as unknown
-    } catch {
-      return null
-    }
-  }, [bodyText])
+  const [customerId, setCustomerId] = useState('')
+  const [lastResponse, setLastResponse] = useState<ProxyResponse | null>(null)
 
   const mutation = useMutation({
-    mutationFn: () =>
-      api<ProxyResponse>('/api/personalization', {
-        method: 'POST',
-        body: JSON.stringify({
-          path,
-          method,
-          body: method === 'GET' ? undefined : parsedBody ?? {},
-        }),
-      }),
+    mutationFn: async (): Promise<ProxyResponse> => {
+      const id = customerId.trim()
+      if (!id) {
+        throw new Error('Enter a customer_id.')
+      }
+
+      if (backend) {
+        const res = await api<ProxyResponse>('/api/personalization', {
+          method: 'POST',
+          body: JSON.stringify({ customerId: id }),
+        })
+        return res
+      }
+
+      await new Promise<void>((r) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => r()))
+      })
+      return localStubResponse(id)
+    },
+    onSuccess: (res) => {
+      setLastResponse(res)
+      dispatch(setSimulatedPersonalizationResponse(res))
+      dispatch(setLastPersonalizationCustomerId(customerId.trim()))
+    },
+    onError: () => {
+      setLastResponse(null)
+    },
   })
 
-  const polled = useQuery({
-    queryKey: ['personalization', path, method, bodyText],
-    queryFn: () =>
-      api<ProxyResponse>('/api/personalization', {
-        method: 'POST',
-        body: JSON.stringify({
-          path,
-          method,
-          body: method === 'GET' ? undefined : parsedBody ?? {},
-        }),
-      }),
-    enabled:
-      backend &&
-      poll &&
-      Boolean(path) &&
-      (method === 'GET' || parsedBody !== null),
-    refetchInterval: poll ? 1500 : false,
-  })
-
-  const displayBackend = poll ? polled.data : mutation.data
-  const displayErrorBackend = poll ? polled.error : mutation.error
-  const isFetchingBackend = poll ? polled.isFetching : mutation.isPending
-
-  function applySimulated() {
-    try {
-      const parsed = JSON.parse(simDraft || '{}') as ProxyResponse
-      dispatch(setSimulatedPersonalizationResponse(parsed))
-    } catch {
-      dispatch(
-        setSimulatedPersonalizationResponse({
-          ok: false,
-          status: 400,
-          error: 'Invalid JSON — fix the textarea and try again.',
-        }),
-      )
-    }
-  }
+  const err = mutation.error
 
   return (
     <div className="page">
       <h1>Personalization API</h1>
       <p className="lede">
-        {backend
-          ? 'Calls go through the demo backend proxy so keys stay server-side.'
-          : 'Simulated mode: edit JSON below and apply. Dynamic Content Rules on each mock event card read this response.'}
+        Enter a <strong>customer_id</strong> and fetch. The demo backend substitutes it into the path
+        from <code>PERSONALIZATION_API_PATH_TEMPLATE</code> (must include{' '}
+        <code>{'{{customerId}}'}</code>), calls your GrowthLoop Personalization API with{' '}
+        <code>PERSONALIZATION_API_KEY</code> server-side, and shows the JSON below.
       </p>
 
-      {backend && (
-        <>
-          <div className="form-grid">
-            <label className="stack-label">
-              <span>Path (appended to configured base URL)</span>
-              <input className="input" value={path} onChange={(e) => setPath(e.target.value)} />
-            </label>
-            <label className="stack-label">
-              <span>Method</span>
-              <select
-                className="input"
-                value={method}
-                onChange={(e) => setMethod(e.target.value as typeof method)}
-              >
-                <option value="GET">GET</option>
-                <option value="POST">POST</option>
-                <option value="PUT">PUT</option>
-                <option value="PATCH">PATCH</option>
-              </select>
-            </label>
-          </div>
-
-          {method !== 'GET' && (
-            <label className="stack-label">
-              <span>JSON body</span>
-              <textarea
-                className="input textarea"
-                rows={10}
-                value={bodyText}
-                onChange={(e) => setBodyText(e.target.value)}
-              />
-            </label>
-          )}
-
-          {parsedBody === null && method !== 'GET' && (
-            <div className="banner banner-error">Body must be valid JSON.</div>
-          )}
-
-          <div className="actions-row">
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={isFetchingBackend || (method !== 'GET' && parsedBody === null)}
-              onClick={() => mutation.mutate()}
-            >
-              Send request
-            </button>
-            <label className="checkbox-label inline">
-              <input type="checkbox" checked={poll} onChange={(e) => setPoll(e.target.checked)} />
-              Poll every 1.5s (latency demo)
-            </label>
-          </div>
-
-          {displayErrorBackend && (
-            <div className="banner banner-error">
-              {(displayErrorBackend as Error).message}
-              {displayErrorBackend instanceof ApiError && (
-                <pre className="result-block">{JSON.stringify(displayErrorBackend.body, null, 2)}</pre>
-              )}
-            </div>
-          )}
-
-          {displayBackend && (
-            <pre className="result-block">{JSON.stringify(displayBackend, null, 2)}</pre>
-          )}
-        </>
+      {!backend && (
+        <div className="banner banner-success">
+          Local mode: the button applies a small stub JSON to the store (for Dynamic Content Rules /
+          Refresh Experience). Enable the backend for real API calls.
+        </div>
       )}
 
-      {!backend && (
-        <>
-          <div className="banner banner-success">
-            Local-only: this JSON is persisted in your browser (Redux + localStorage) and powers
-            image previews under Dynamic Content Rules on each mock event card.
-          </div>
-          <label className="stack-label">
-            <span>Simulated proxy response (JSON)</span>
-            <textarea
-              className="input textarea"
-              rows={14}
-              value={simDraft}
-              onChange={(e) => setSimDraft(e.target.value)}
-            />
-          </label>
-          <div className="actions-row">
-            <button type="button" className="btn btn-primary" onClick={applySimulated}>
-              Apply to store
-            </button>
-          </div>
-          {simulatedFromStore && (
-            <pre className="result-block">{JSON.stringify(simulatedFromStore, null, 2)}</pre>
+      <div className="form-grid personalization-customer-form">
+        <label className="stack-label">
+          <span>customer_id</span>
+          <input
+            className="input"
+            value={customerId}
+            onChange={(e) => setCustomerId(e.target.value)}
+            placeholder="e.g. cust_01HXYZ…"
+            autoComplete="off"
+          />
+        </label>
+      </div>
+
+      <div className="actions-row">
+        <button
+          type="button"
+          className="btn btn-primary"
+          disabled={mutation.isPending}
+          onClick={() => mutation.mutate()}
+        >
+          Fetch personalization
+        </button>
+      </div>
+
+      {err && (
+        <div className="banner banner-error">
+          {(err as Error).message}
+          {err instanceof ApiError && (
+            <pre className="result-block">{JSON.stringify(err.body, null, 2)}</pre>
           )}
-        </>
+        </div>
+      )}
+
+      {lastResponse && (
+        <section className="personalization-response-section">
+          <h2 className="personalization-response-heading">Response</h2>
+          <pre className="result-block">{JSON.stringify(lastResponse, null, 2)}</pre>
+        </section>
       )}
     </div>
   )
