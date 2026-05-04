@@ -1,4 +1,5 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
+import { normalizeRulesFieldPath } from '../lib/personalizationFieldPath'
 import {
   normalizeComparisonOperator,
   type ComparisonOperator,
@@ -50,7 +51,7 @@ export function createDefaultDynamicRules(): DynamicContentState {
   return {
     title: 'Dynamic hero',
     contentSourceMode: 'dynamic',
-    fieldPath: 'segment',
+    fieldPath: normalizeRulesFieldPath('segment'),
     dynamicMappings: [
       { operator: 'eq', value: '', imageUrl: '' },
       { operator: 'eq', value: '', imageUrl: '' },
@@ -75,6 +76,7 @@ export function normalizeDynamicContentState(
     return {
       ...base,
       ...r,
+      fieldPath: normalizeRulesFieldPath(r.fieldPath),
       dynamicMappings:
         r.dynamicMappings?.length ?
           r.dynamicMappings.map((m) => ({
@@ -111,7 +113,7 @@ export function normalizeDynamicContentState(
   return {
     ...base,
     title: leg.title ?? base.title,
-    fieldPath: leg.fieldPath ?? base.fieldPath,
+    fieldPath: normalizeRulesFieldPath(leg.fieldPath ?? base.fieldPath),
     contentSourceMode: 'dynamic',
     dynamicMappings: dm,
     staticMappings: base.staticMappings,

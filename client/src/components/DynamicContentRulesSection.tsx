@@ -1,4 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
+import {
+  fieldPathSuffixFromStored,
+  normalizeRulesFieldPath,
+  wrapPersonalizationProfileRoot,
+} from '../lib/personalizationFieldPath'
 import { getAtPath } from '../lib/path'
 import {
   COMPARISON_OPERATORS,
@@ -53,7 +58,7 @@ export function DynamicContentRulesSection({ eventId, eventName }: Props) {
   const [titleSuffix, setTitleSuffix] = useState('')
   const [contentSourceMode, setContentSourceMode] =
     useState<ContentSourceMode>('dynamic')
-  const [fieldPath, setFieldPath] = useState('')
+  const [fieldPathSuffix, setFieldPathSuffix] = useState('')
   const [dynamicMappings, setDynamicMappings] = useState<MappingRow[]>(
     createDefaultDynamicRules().dynamicMappings,
   )
@@ -71,7 +76,7 @@ export function DynamicContentRulesSection({ eventId, eventName }: Props) {
     const normalized = normalizeDynamicContentState(stored)
     setTitleSuffix(parsePanelTitleSuffix(normalized.title, eventName))
     setContentSourceMode(normalized.contentSourceMode)
-    setFieldPath(normalized.fieldPath)
+    setFieldPathSuffix(fieldPathSuffixFromStored(normalized.fieldPath))
     setDynamicMappings(normalized.dynamicMappings)
     setStaticMappings(normalized.staticMappings)
     setDefaultDynamicContent(normalized.defaultDynamicContent)
@@ -79,6 +84,10 @@ export function DynamicContentRulesSection({ eventId, eventName }: Props) {
   }, [eventId, eventName, stored])
 
   function validateBeforeSave(): string | null {
+    const suf = fieldPathSuffix.trim().replace(/^\.+/, '')
+    if (!suf) {
+      return 'Field path must include at least one segment after data. (e.g. entity_id or audiences.31325.phone)'
+    }
     if (contentSourceMode === 'static') {
       for (let i = 0; i < staticMappings.length; i++) {
         const row = staticMappings[i]
@@ -125,7 +134,7 @@ export function DynamicContentRulesSection({ eventId, eventName }: Props) {
     const rules: DynamicContentState = {
       title: buildPanelTitle(eventName, titleSuffix),
       contentSourceMode,
-      fieldPath,
+      fieldPath: normalizeRulesFieldPath(fieldPathSuffix),
       dynamicMappings: dynamicMappings.filter((m) => m.value.trim() || m.imageUrl.trim()),
       staticMappings: staticMappings.filter((m) => m.value.trim() || m.content.trim()),
       defaultDynamicContent,
@@ -136,8 +145,9 @@ export function DynamicContentRulesSection({ eventId, eventName }: Props) {
     window.setTimeout(() => setSaveFlash(false), 2000)
   }
 
-  const resolved = simData
-  const keyVal = getAtPath(resolved, fieldPath)
+  const fullFieldPath = normalizeRulesFieldPath(fieldPathSuffix)
+  const resolvedRoot = wrapPersonalizationProfileRoot(simData)
+  const keyVal = getAtPath(resolvedRoot, fullFieldPath)
   const keyStr = keyVal === undefined || keyVal === null ? '' : String(keyVal)
 
   const previewStatic = useMemo(() => {
@@ -247,12 +257,23 @@ export function DynamicContentRulesSection({ eventId, eventName }: Props) {
 
         <label className="stack-label">
           <span>Field path to target API Response value</span>
-          <input
-            className="input"
-            value={fieldPath}
-            onChange={(e) => setFieldPath(e.target.value)}
-            placeholder="e.g. segment or recommendation.hero"
-          />
+          <div className="panel-title-field">
+            <span className="panel-title-prefix" title="Always under the response data object">
+              data.
+            </span>
+            <input
+              className="input panel-title-suffix"
+              value={fieldPathSuffix}
+              onChange={(e) => setFieldPathSuffix(e.target.value)}
+              placeholder="e.g. entity_id or audiences.31325.phone"
+              aria-label="Dot path under data (after data. prefix)"
+              autoComplete="off"
+            />
+          </div>
+          <span className="muted small panel-title-hint">
+            Matches the Personalization response shape: profile fields live under{' '}
+            <code>data</code>. Full path: <code>{fullFieldPath}</code>
+          </span>
         </label>
 
         {contentSourceMode === 'static' && (
@@ -498,7 +519,7 @@ export function DynamicContentRulesSection({ eventId, eventName }: Props) {
                   className="preview-image preview-image-compact"
                 />
                 <div className="muted small">
-                  Resolved <code>{fieldPath || '…'}</code> ={' '}
+                  Resolved <code>{fullFieldPath}</code> ={' '}
                   <code>{keyStr || '(empty)'}</code>
                 </div>
               </>
@@ -506,7 +527,7 @@ export function DynamicContentRulesSection({ eventId, eventName }: Props) {
               <>
                 <div className="preview-text-box">{previewStatic.text}</div>
                 <div className="muted small">
-                  Resolved <code>{fieldPath || '…'}</code> ={' '}
+                  Resolved <code>{fullFieldPath}</code> ={' '}
                   <code>{keyStr || '(empty)'}</code>
                 </div>
               </>
@@ -518,7 +539,7 @@ export function DynamicContentRulesSection({ eventId, eventName }: Props) {
                   className="preview-image preview-image-compact"
                 />
                 <div className="muted small">
-                  Resolved <code>{fieldPath || '…'}</code> ={' '}
+                  Resolved <code>{fullFieldPath}</code> ={' '}
                   <code>{keyStr || '(empty)'}</code>
                 </div>
               </>

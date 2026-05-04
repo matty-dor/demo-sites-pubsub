@@ -20,6 +20,7 @@ A **GrowthLoop-style PoC demo**: mock events (schemas + payloads), optional publ
 ### Mock Events (`client/src/pages/HomePage.tsx`)
 
 - Cards per event: schema, payload editor, **Dynamic Content Rules**, Trigger.
+- **Payloads** are stored in Redux **`eventPayloads.byEventId`** (`eventPayloadsSlice`) so the same values drive Trigger, preview, and refresh; seeded via **`ensureDefaultPayloadForEvent`** per card.
 - **Trigger** uses `useMockEventPublish`: Confluent REST URL if set, else Fastify publish if backend, else simulated envelope in-browser.
 - After **successful** publish, **Refresh Experience** can appear (see below).
 
@@ -32,7 +33,8 @@ A **GrowthLoop-style PoC demo**: mock events (schemas + payloads), optional publ
 ### Mock Experiences (`client/src/pages/MockContentPage.tsx`)
 
 - Lists events that have **saved** rules (`eventDynamicRules.byEventId`).
-- **Live experience** (`MockExperienceLiveRegion`): after trigger, **Refresh Experience** fetches personalization (or uses simulated data locally), shows **loading skeleton first**, then **either** matched rule content **or** default — avoids default-then-swap flash.
+- **Live experience** (`MockExperienceLiveRegion`): receives **`eventSchema`** plus **`eventId`** so refresh reads **`customer_id`** from the shared **`eventPayloads`** store (same as Mock Events cards). **Trigger** on this page aligns **`payloadsById[eventId]`** (or default payload from schema), not a bare `buildDefaultPayload` only.
+- After trigger, **Refresh Experience** fetches personalization (or uses simulated data locally), shows **loading skeleton first**, then **either** matched rule content **or** default — avoids default-then-swap flash.
 - **Saved default** lives in a collapsible reference block.
 
 ### Publish / Kafka
@@ -44,8 +46,15 @@ A **GrowthLoop-style PoC demo**: mock events (schemas + payloads), optional publ
 ### Post-trigger refresh pipeline
 
 - `experienceRefresh` slice: `awaitingRefreshByEventId` set on publish **success** (`useMockEventPublish`), cleared after Refresh.
-- **Refresh** calls `fetchPersonalizationSnapshot`: `personalizationHttpEnabled()` → `POST /api/personalization` with `{ customerId }` when `lastPersonalizationCustomerId` is set (or Fastify generic GET `/` when `VITE_USE_BACKEND` only); otherwise simulated store after a paint tick.
-- Updates `simulator.personalizationResponse` so Mock Events preview stays aligned.
+- **Refresh Experience** (Mock Events card actions and **Mock Experiences** live region) calls `fetchPersonalizationSnapshot` with **`customerIdFromMockEvent`**: `customer_id` is taken **only** from that event’s mock payload via **`extractCustomerIdFromPayload`** (schema-aligned). It does **not** use the **Personalization API** page’s customer input (`lastPersonalizationCustomerId`). If `customer_id` is missing or blank after trim, the client returns an error for that refresh path instead of falling back to the page field.
+- **Personalization page** fetches for debugging still may set **`lastPersonalizationCustomerId`** for ad-hoc calls; that path applies when **`customerIdFromMockEvent`** is omitted (not used for mock-event refresh).
+- Otherwise: `personalizationHttpEnabled()` → proxy `POST` with `{ customerId }`; local/simulated path when not using HTTP; Fastify generic GET when backend-only as before.
+- Updates `simulator.personalizationResponse` so preview stays aligned.
+
+### Required `customer_id` on mock event schemas
+
+- **Create mock event** (`CreateMockEventPage`): save is blocked unless the schema includes a **root** field **`customer_id`** with type **string** (`schemaHasRequiredCustomerId`, `CUSTOMER_ID_SCHEMA_HINT` in `mockEventSchemaRules.ts`).
+- **Server** (`server/src/types.ts`): **`mockEventSchema`** uses **`.superRefine`** so **`POST /api/mock-events`** rejects schemas without that root string field (parity with client).
 
 ### Vercel vs Fastify env split
 
@@ -79,7 +88,7 @@ Supabase, personalization proxy, optional **KafkaJS** brokers (optional if only 
 
 ## Persistence
 
-Redux persist whitelist includes `mockEvents`, `eventDynamicRules`, `simulator`, `branding` — **not** `experienceRefresh` (session-only).
+Redux persist whitelist includes `mockEvents`, **`eventPayloads`**, `eventDynamicRules`, `simulator`, `branding` — **not** `experienceRefresh` (session-only). **Reset demo data** (`DemoResetButton`) clears **`eventPayloads`** along with mock events and rules (local-only flow).
 
 ## Build / deploy hints
 
@@ -87,19 +96,26 @@ Redux persist whitelist includes `mockEvents`, `eventDynamicRules`, `simulator`,
 
 ## Resuming work — sensible next steps
 
-1. **Personalization request parity:** Persist or reuse path/method/body from the Personalization page for Refresh (today Refresh uses **GET `/`** when backend is on).
+1. **Personalization request parity:** If backend-only mode should mirror the Vercel proxy’s POST body for **non–mock-event** flows, align Fastify generic GET vs POST (mock-event refresh already sends **`customerId`** from payload).
 2. **Fastify Kafka body:** If using KafkaJS path, confirm record **value** matches what GrowthLoop expects (Vercel REST path sends `payload` only).
 3. **`example_event_bridge`:** Ignored by git; keep a separate clone if you need the Python reference in-repo.
+4. **Legacy events:** Schemas created before the **`customer_id`** rule may still exist in persisted state; editing/recreating may be needed for refresh to succeed until schema includes root **`customer_id`** (string).
 
 ## Key source files (quick index)
 
 - Publish hook: `client/src/hooks/useMockEventPublish.ts`
+- Event payloads (per mock event): `client/src/store/eventPayloadsSlice.ts`
+- `customer_id` from aligned payload: `client/src/lib/customerIdFromPayload.ts`
+- Schema rule (root `customer_id` string): `client/src/lib/mockEventSchemaRules.ts`
 - Rules + operators: `client/src/store/eventDynamicRulesSlice.ts`, `client/src/lib/ruleMatch.ts`, `client/src/lib/experienceResolve.ts`
 - Live experience UI: `client/src/components/MockExperienceLiveRegion.tsx`
 - Refresh gate: `client/src/store/experienceRefreshSlice.ts`
-- Personalization fetch: `client/src/lib/personalizationClient.ts`
+- Personalization fetch: `client/src/lib/personalizationClient.ts` (`customerIdFromMockEvent` vs page-driven path)
+- Create mock event validation: `client/src/pages/CreateMockEventPage.tsx`
+- Server mock-event validation: `server/src/types.ts` (`mockEventSchema`)
+- Demo reset: `client/src/components/DemoResetButton.tsx`
 - Vercel producer: `api/publish.js`
 
 ---
 
-*Last aligned with implementation in this workspace as of the session that added operators, Mock Experiences refresh flow, and Confluent REST publishing.*
+*Last aligned with implementation in this workspace as of the session that added **`eventPayloads`**, required schema **`customer_id`**, and Refresh Experience using mock-payload **`customer_id`** only (not the Personalization page field).*

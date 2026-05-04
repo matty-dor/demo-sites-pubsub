@@ -1,5 +1,6 @@
 import type { DynamicContentState } from '../store/eventDynamicRulesSlice'
 import { normalizeDynamicContentState } from '../store/eventDynamicRulesSlice'
+import { wrapPersonalizationProfileRoot } from './personalizationFieldPath'
 import { getAtPath } from './path'
 import { mappingRowMatches } from './ruleMatch'
 import { isValidHttpUrl } from './urlValidation'
@@ -27,14 +28,17 @@ export type LiveExperienceView =
     }
 
 /**
- * Resolve which content to show for saved rules against a personalization `data` root.
+ * Resolve which content to show for saved rules. `data` is the profile object from
+ * `personalizationResponse.data` (or the proxy’s inner payload); paths always include the `data.`
+ * prefix and are resolved against `{ data }` so they match the full API JSON shape.
  */
 export function resolveLiveExperience(
   rules: DynamicContentState,
   data: unknown,
 ): LiveExperienceView {
   const r = normalizeDynamicContentState(rules)
-  const keyVal = getAtPath(data, r.fieldPath)
+  const root = wrapPersonalizationProfileRoot(data)
+  const keyVal = getAtPath(root, r.fieldPath)
 
   if (r.contentSourceMode === 'static') {
     const row = r.staticMappings.find((m) =>
