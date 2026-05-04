@@ -27,6 +27,11 @@ export type LiveExperienceView =
       message: string
     }
 
+export type ResolveLiveExperienceOptions = {
+  /** Skip mapping rows and show saved default content only (same personalization payload). */
+  forceDefault?: boolean
+}
+
 /**
  * Resolve which content to show for saved rules. `data` is the profile object from
  * `personalizationResponse.data` (or the proxy’s inner payload); paths always include the `data.`
@@ -35,15 +40,20 @@ export type LiveExperienceView =
 export function resolveLiveExperience(
   rules: DynamicContentState,
   data: unknown,
+  options?: ResolveLiveExperienceOptions,
 ): LiveExperienceView {
+  const forceDefault = options?.forceDefault === true
   const r = normalizeDynamicContentState(rules)
   const root = wrapPersonalizationProfileRoot(data)
   const keyVal = getAtPath(root, r.fieldPath)
 
   if (r.contentSourceMode === 'static') {
-    const row = r.staticMappings.find((m) =>
-      mappingRowMatches(keyVal, m.operator, m.value),
-    )
+    const row =
+      forceDefault ?
+        undefined
+      : r.staticMappings.find((m) =>
+          mappingRowMatches(keyVal, m.operator, m.value),
+        )
 
     let contentType = r.defaultStatic.contentType
     let raw = r.defaultStatic.content
@@ -77,9 +87,12 @@ export function resolveLiveExperience(
     return { kind: 'static_image', source, url: c }
   }
 
-  const row = r.dynamicMappings.find((m) =>
-    mappingRowMatches(keyVal, m.operator, m.value),
-  )
+  const row =
+    forceDefault ?
+      undefined
+    : r.dynamicMappings.find((m) =>
+        mappingRowMatches(keyVal, m.operator, m.value),
+      )
   const fromRow = row?.imageUrl?.trim()
   const fallback = r.defaultDynamicContent.trim()
   const url = fromRow || fallback

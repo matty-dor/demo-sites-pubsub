@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useStore } from 'react-redux'
 import { extractCustomerIdFromPayload } from '../lib/customerIdFromPayload'
 import { fetchPersonalizationSnapshot } from '../lib/personalizationClient'
@@ -78,6 +78,16 @@ export function MockExperienceLiveRegion({ eventId, eventSchema, rules }: Props)
 
   const [phase, setPhase] = useState<Phase>('unset')
   const [liveView, setLiveView] = useState<LiveExperienceView | null>(null)
+  /** Last profile payload from Refresh — reused so Reset applies defaults without a new API call. */
+  const lastPersonalizationDataRef = useRef<unknown>(undefined)
+  const hasCompletedRefreshRef = useRef(false)
+
+  useEffect(() => {
+    lastPersonalizationDataRef.current = undefined
+    hasCompletedRefreshRef.current = false
+    setPhase('unset')
+    setLiveView(null)
+  }, [eventId])
 
   const showRefresh =
     Boolean(awaitingRefresh) || phase === 'ready' || phase === 'loading'
@@ -106,10 +116,21 @@ export function MockExperienceLiveRegion({ eventId, eventSchema, rules }: Props)
     )
     dispatch(clearExperienceAwaitingRefresh(eventId))
 
+    lastPersonalizationDataRef.current = snap.data
+    hasCompletedRefreshRef.current = true
     const view = resolveLiveExperience(rules, snap.data)
     setLiveView(view)
     setPhase('ready')
   }, [dispatch, eventId, eventSchema, rules, store])
+
+  const resetToDefaultExperience = useCallback(() => {
+    if (!hasCompletedRefreshRef.current) return
+    setLiveView(
+      resolveLiveExperience(rules, lastPersonalizationDataRef.current, {
+        forceDefault: true,
+      }),
+    )
+  }, [rules])
 
   return (
     <div className="mock-experience-live-region">
@@ -153,6 +174,15 @@ export function MockExperienceLiveRegion({ eventId, eventSchema, rules }: Props)
             onClick={() => void runRefresh()}
           >
             Refresh Experience
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            disabled={phase !== 'ready'}
+            onClick={resetToDefaultExperience}
+            title="Show saved default content using the same personalization response (no new API call)"
+          >
+            Reset to Default Experience
           </button>
           {awaitingRefresh && phase !== 'loading' && (
             <span className="muted small mock-experience-refresh-hint">

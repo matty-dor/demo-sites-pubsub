@@ -150,7 +150,9 @@ export function HomePage() {
               style={getEventThemeStyle(ev.id)}
             >
               <div className="card-head">
-                <h2>{ev.name}</h2>
+                <h2>
+                  Event Name: {ev.name}
+                </h2>
                 {!backend && (
                   <button
                     type="button"
@@ -167,9 +169,7 @@ export function HomePage() {
               </div>
               <GrowthLoopSchemaPanel eventName={ev.name} rootFields={schema} />
               <details className="mock-event-collapsible">
-                <summary className="mock-event-collapsible-summary">
-                  Mock event data <span className="muted">(payload)</span>
-                </summary>
+                <summary className="mock-event-collapsible-summary">Mock Event Payload</summary>
                 <div className="mock-event-collapsible-inner">
                   <PayloadEditor
                     schema={schema}

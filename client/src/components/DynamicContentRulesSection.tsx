@@ -13,6 +13,7 @@ import {
 } from '../lib/ruleMatch'
 import { isValidHttpUrl } from '../lib/urlValidation'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
+import { panelTitleSuffixFromSaved } from '../lib/panelTitle'
 import {
   createDefaultDynamicRules,
   type ContentSourceMode,
@@ -27,14 +28,6 @@ import {
 type Props = {
   eventId: string
   eventName: string
-}
-
-function parsePanelTitleSuffix(fullTitle: string, eventName: string): string {
-  const prefix = `${eventName}: `
-  if (fullTitle.startsWith(prefix)) {
-    return fullTitle.slice(prefix.length)
-  }
-  return fullTitle
 }
 
 function buildPanelTitle(eventName: string, suffix: string): string {
@@ -74,7 +67,7 @@ export function DynamicContentRulesSection({ eventId, eventName }: Props) {
 
   useEffect(() => {
     const normalized = normalizeDynamicContentState(stored)
-    setTitleSuffix(parsePanelTitleSuffix(normalized.title, eventName))
+    setTitleSuffix(panelTitleSuffixFromSaved(normalized.title, eventName))
     setContentSourceMode(normalized.contentSourceMode)
     setFieldPathSuffix(fieldPathSuffixFromStored(normalized.fieldPath))
     setDynamicMappings(normalized.dynamicMappings)
@@ -197,9 +190,7 @@ export function DynamicContentRulesSection({ eventId, eventName }: Props) {
 
   return (
     <details className="mock-event-collapsible">
-      <summary className="mock-event-collapsible-summary">
-        Dynamic Content Rules <span className="muted">(content mappings)</span>
-      </summary>
+      <summary className="mock-event-collapsible-summary">Dynamic Content Rules</summary>
       <div className="mock-event-collapsible-inner dynamic-rules-inner">
         <p className="muted small dynamic-rules-lede">
           Map resolved API values to content. Same simulated personalization payload applies to all

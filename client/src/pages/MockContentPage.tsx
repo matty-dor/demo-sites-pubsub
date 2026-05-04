@@ -11,6 +11,7 @@ import { buildDefaultPayload } from '../lib/schemaDefaults'
 import { ensureDefaultPayloadForEvent } from '../store/eventPayloadsSlice'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
 import { getEventThemeStyle } from '../lib/eventTheme'
+import { panelTitleSuffixFromSaved } from '../lib/panelTitle'
 import type { SchemaNode } from '../types/schema'
 
 type ApiMockEventRow = {
@@ -109,12 +110,14 @@ export function MockContentPage() {
               className="card mock-experience-card"
               style={getEventThemeStyle(ev.id)}
             >
-              <div className="card-head">
-                <h2>{rules.title}</h2>
+              <div className="card-head mock-experience-card-head">
+                <div className="mock-experience-card-titles">
+                  <h2 className="mock-experience-card-event-name">Event Name: {ev.name}</h2>
+                  <h2 className="mock-experience-card-rule-name">
+                    Content Rule: {panelTitleSuffixFromSaved(rules.title, ev.name)}
+                  </h2>
+                </div>
               </div>
-              <p className="muted small mock-experience-meta">
-                Mock event: <strong>{ev.name}</strong>
-              </p>
               <MockExperienceLiveRegion
                 eventId={ev.id}
                 eventSchema={schema}

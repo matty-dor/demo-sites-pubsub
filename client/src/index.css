@@ -804,8 +804,31 @@ body {
   margin: 0.65rem 0;
 }
 
-.mock-experience-meta {
-  margin: 0 0 0.75rem;
+.mock-experience-card-head {
+  align-items: flex-start;
+}
+
+.mock-experience-card-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.mock-experience-card-event-name,
+.mock-experience-card-rule-name {
+  margin: 0;
+  line-height: 1.25;
+}
+
+.mock-experience-card-event-name {
+  font-size: 1.15rem;
+}
+
+.mock-experience-card-rule-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--muted);
 }
 
 .mock-experience-default-shell {
