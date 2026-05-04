@@ -10,6 +10,7 @@ import { alignPayloadToMockSchema } from '../lib/payloadAlign'
 import { buildDefaultPayload } from '../lib/schemaDefaults'
 import { ensureDefaultPayloadForEvent } from '../store/eventPayloadsSlice'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
+import { getEventThemeStyle } from '../lib/eventTheme'
 import type { SchemaNode } from '../types/schema'
 
 type ApiMockEventRow = {
@@ -103,7 +104,11 @@ export function MockContentPage() {
           const schema = ev.schema ?? []
           const rules = rulesByEventId[ev.id]!
           return (
-            <article key={ev.id} className="card mock-experience-card">
+            <article
+              key={ev.id}
+              className="card mock-experience-card"
+              style={getEventThemeStyle(ev.id)}
+            >
               <div className="card-head">
                 <h2>{rules.title}</h2>
               </div>

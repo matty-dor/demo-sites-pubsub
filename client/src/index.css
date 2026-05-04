@@ -421,6 +421,42 @@ body {
   margin-bottom: 1.25rem;
 }
 
+/* Per-event accents via inline --event-accent / --event-accent-glow (see getEventThemeStyle). */
+.card.mock-event-card,
+.card.mock-experience-card {
+  --event-accent: var(--accent);
+  --event-accent-glow: rgba(91, 141, 239, 0.14);
+  background:
+    radial-gradient(ellipse 135% 95% at 100% -25%, var(--event-accent-glow), transparent 55%),
+    var(--surface);
+  border-color: color-mix(in srgb, var(--border) 66%, var(--event-accent) 34%);
+}
+
+.card.mock-event-card .btn-primary,
+.card.mock-experience-card .btn-primary {
+  background: var(--event-accent);
+  border-color: color-mix(in srgb, var(--event-accent) 75%, #0b1020 25%);
+  color: #0b1020;
+}
+
+.card.mock-event-card .btn-primary:disabled,
+.card.mock-experience-card .btn-primary:disabled {
+  opacity: 0.45;
+}
+
+.card.mock-event-card .btn-secondary,
+.card.mock-experience-card .btn-secondary {
+  border-color: color-mix(in srgb, var(--event-accent) 38%, var(--border) 62%);
+  color: color-mix(in srgb, var(--text) 86%, var(--event-accent) 14%);
+  background: color-mix(in srgb, var(--event-accent) 6%, transparent);
+}
+
+.card.mock-event-card .btn-secondary:hover:not(:disabled),
+.card.mock-experience-card .btn-secondary:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--event-accent) 48%, var(--border) 52%);
+  background: color-mix(in srgb, var(--event-accent) 11%, transparent);
+}
+
 .card-head {
   display: flex;
   align-items: flex-start;
@@ -698,6 +734,10 @@ body {
   text-align: left;
 }
 
+.mock-experience-card .mock-experience-live-region {
+  border-color: color-mix(in srgb, var(--border) 70%, var(--event-accent) 30%);
+}
+
 .mock-experience-live-heading {
   margin-top: 0 !important;
 }
@@ -762,10 +802,6 @@ body {
 
 .mock-experience-reference {
   margin: 0.65rem 0;
-}
-
-.mock-experience-card {
-  border-style: dashed;
 }
 
 .mock-experience-meta {

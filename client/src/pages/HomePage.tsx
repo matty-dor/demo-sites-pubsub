@@ -24,6 +24,7 @@ import { alignPayloadToMockSchema } from '../lib/payloadAlign'
 import { buildDefaultPayload } from '../lib/schemaDefaults'
 import { PayloadEditor } from '../components/PayloadEditor'
 import { GrowthLoopSchemaPanel } from '../components/GrowthLoopSchemaPanel'
+import { getEventThemeStyle } from '../lib/eventTheme'
 
 type ApiMockEventRow = {
   id: string
@@ -143,7 +144,11 @@ export function HomePage() {
           const schema = ev.schema ?? []
           const payload = payloadsById[ev.id] ?? buildDefaultPayload(schema)
           return (
-            <article key={ev.id} className="card">
+            <article
+              key={ev.id}
+              className="card mock-event-card"
+              style={getEventThemeStyle(ev.id)}
+            >
               <div className="card-head">
                 <h2>{ev.name}</h2>
                 {!backend && (
