@@ -22,11 +22,11 @@ export const eventPayloadsSlice = createSlice({
     },
     ensureDefaultPayloadForEvent: (
       state,
-      action: PayloadAction<{ eventId: string; schema: SchemaNode[] }>,
+      action: PayloadAction<{ eventId: string; schema: SchemaNode[]; eventName: string }>,
     ) => {
-      const { eventId, schema } = action.payload
+      const { eventId, schema, eventName } = action.payload
       if (!state.byEventId[eventId]) {
-        state.byEventId[eventId] = buildDefaultPayload(schema)
+        state.byEventId[eventId] = buildDefaultPayload(schema, eventName)
       }
     },
     removePayloadForEvent: (state, action: PayloadAction<string>) => {

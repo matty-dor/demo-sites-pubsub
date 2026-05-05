@@ -6,6 +6,7 @@ import { MockExperienceLiveRegion } from '../components/MockExperienceLiveRegion
 import { MockExperienceRulesDefault } from '../components/MockExperienceRulesDefault'
 import { backendStorageEnabled } from '../config/storageMode'
 import { useMockEventPublish } from '../hooks/useMockEventPublish'
+import { withEventTypeFirst } from '../lib/eventTypePayload'
 import { alignPayloadToMockSchema } from '../lib/payloadAlign'
 import { buildDefaultPayload } from '../lib/schemaDefaults'
 import { ensureDefaultPayloadForEvent } from '../store/eventPayloadsSlice'
@@ -62,6 +63,7 @@ export function MockContentPage() {
         ensureDefaultPayloadForEvent({
           eventId: ev.id,
           schema: ev.schema ?? [],
+          eventName: ev.name,
         }),
       )
     }
@@ -120,6 +122,7 @@ export function MockContentPage() {
               </div>
               <MockExperienceLiveRegion
                 eventId={ev.id}
+                eventName={ev.name}
                 eventSchema={schema}
                 rules={rules}
               />
@@ -138,8 +141,11 @@ export function MockContentPage() {
                   disabled={backend && publishPending}
                   onClick={() => {
                     const raw =
-                      payloadsById[ev.id] ?? buildDefaultPayload(schema)
-                    const aligned = alignPayloadToMockSchema(schema, raw)
+                      payloadsById[ev.id] ?? buildDefaultPayload(schema, ev.name)
+                    const aligned = withEventTypeFirst(
+                      ev.name,
+                      alignPayloadToMockSchema(schema, raw),
+                    )
                     triggerPublish(ev.id, aligned, ev.name)
                   }}
                 >

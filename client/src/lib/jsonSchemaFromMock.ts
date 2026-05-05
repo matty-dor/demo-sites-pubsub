@@ -1,4 +1,5 @@
 import type { SchemaNode } from '../types/schema'
+import { EVENT_TYPE_KEY } from './eventTypePayload'
 
 /** Fragment compatible with JSON Schema draft-07 `properties` values. */
 export type JsonSchemaFragment = Record<string, unknown>
@@ -64,8 +65,15 @@ export function buildGrowthLoopEventSchema(
   eventName: string,
   rootFields: SchemaNode[],
 ): JsonSchemaFragment {
-  const properties: Record<string, JsonSchemaFragment> = {}
+  const properties: Record<string, JsonSchemaFragment> = {
+    [EVENT_TYPE_KEY]: {
+      type: 'string',
+      description:
+        'Identifies this mock event in GrowthLoop; equals the Mock Event name shown in the PoC UI.',
+    },
+  }
   for (const field of rootFields) {
+    if (field.key === EVENT_TYPE_KEY) continue
     properties[field.key] = fieldNodeToJsonSchema(field)
   }
 

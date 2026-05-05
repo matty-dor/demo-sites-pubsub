@@ -18,6 +18,7 @@ type DisplaySource = 'default' | 'refreshed'
 
 type Props = {
   eventId: string
+  eventName: string
   /** Same schema as the mock event card — used to read customer_id from the shared payload store. */
   eventSchema: SchemaNode[]
   rules: DynamicContentState
@@ -69,7 +70,7 @@ function LiveRender({ view }: { view: LiveExperienceView }) {
   )
 }
 
-export function MockExperienceLiveRegion({ eventId, eventSchema, rules }: Props) {
+export function MockExperienceLiveRegion({ eventId, eventName, eventSchema, rules }: Props) {
   const dispatch = useAppDispatch()
   const store = useStore()
   const awaitingRefresh = useAppSelector(
@@ -102,7 +103,7 @@ export function MockExperienceLiveRegion({ eventId, eventSchema, rules }: Props)
 
     const state = store.getState() as RootState
     const payload =
-      state.eventPayloads.byEventId[eventId] ?? buildDefaultPayload(eventSchema)
+      state.eventPayloads.byEventId[eventId] ?? buildDefaultPayload(eventSchema, eventName)
     const cid = extractCustomerIdFromPayload(eventSchema, payload)
 
     try {
@@ -127,7 +128,7 @@ export function MockExperienceLiveRegion({ eventId, eventSchema, rules }: Props)
     } finally {
       setLoading(false)
     }
-  }, [dispatch, eventId, eventSchema, store])
+  }, [dispatch, eventId, eventName, eventSchema, store])
 
   const resetToDefaultExperience = useCallback(() => {
     if (!hasEverRefreshed) return

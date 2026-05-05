@@ -20,6 +20,7 @@ import {
 } from '../store/eventPayloadsSlice'
 import { removeMockEvent } from '../store/mockEventsSlice'
 import type { SchemaNode } from '../types/schema'
+import { withEventTypeFirst } from '../lib/eventTypePayload'
 import { alignPayloadToMockSchema } from '../lib/payloadAlign'
 import { buildDefaultPayload } from '../lib/schemaDefaults'
 import { PayloadEditor } from '../components/PayloadEditor'
@@ -65,10 +66,10 @@ export function HomePage() {
   const { triggerPublish, publishStatus, publishPending } = useMockEventPublish()
 
   const refreshPersonalization = useCallback(
-    async (eventId: string, schema: SchemaNode[]) => {
+    async (eventId: string, schema: SchemaNode[], eventName: string) => {
       const state = store.getState() as RootState
       const payload =
-        state.eventPayloads.byEventId[eventId] ?? buildDefaultPayload(schema)
+        state.eventPayloads.byEventId[eventId] ?? buildDefaultPayload(schema, eventName)
       const cid = extractCustomerIdFromPayload(schema, payload)
       const snap = await fetchPersonalizationSnapshot({
         getState: () => store.getState() as RootState,
@@ -93,6 +94,7 @@ export function HomePage() {
         ensureDefaultPayloadForEvent({
           eventId: ev.id,
           schema: ev.schema ?? [],
+          eventName: ev.name,
         }),
       )
     }
@@ -142,7 +144,7 @@ export function HomePage() {
       <div className="event-grid">
         {events.map((ev) => {
           const schema = ev.schema ?? []
-          const payload = payloadsById[ev.id] ?? buildDefaultPayload(schema)
+          const payload = payloadsById[ev.id] ?? buildDefaultPayload(schema, ev.name)
           return (
             <article
               key={ev.id}
@@ -187,7 +189,10 @@ export function HomePage() {
                   className="btn btn-primary"
                   disabled={backend && publishPending}
                   onClick={() => {
-                    const aligned = alignPayloadToMockSchema(schema, payload)
+                    const aligned = withEventTypeFirst(
+                      ev.name,
+                      alignPayloadToMockSchema(schema, payload),
+                    )
                     triggerPublish(ev.id, aligned, ev.name)
                   }}
                 >
@@ -197,7 +202,7 @@ export function HomePage() {
                   <button
                     type="button"
                     className="btn btn-secondary"
-                    onClick={() => void refreshPersonalization(ev.id, schema)}
+                    onClick={() => void refreshPersonalization(ev.id, schema, ev.name)}
                   >
                     Refresh Experience
                   </button>

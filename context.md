@@ -20,21 +20,22 @@ A **GrowthLoop-style PoC demo**: mock events (schemas + payloads), optional publ
 ### Mock Events (`client/src/pages/HomePage.tsx`)
 
 - Cards per event: schema, payload editor, **Dynamic Content Rules**, Trigger.
+- Card title line: **`Event Name: …`**. Collapsible summaries on the card are shortened to **GrowthLoop Event Schema**, **Mock Event Payload**, and **Dynamic Content Rules** (see **Recent interaction summary**).
 - **Payloads** are stored in Redux **`eventPayloads.byEventId`** (`eventPayloadsSlice`) so the same values drive Trigger, preview, and refresh; seeded via **`ensureDefaultPayloadForEvent`** per card.
 - **Trigger** uses `useMockEventPublish`: Confluent REST URL if set, else Fastify publish if backend, else simulated envelope in-browser.
 - After **successful** publish, **Refresh Experience** can appear (see below).
 
 ### Dynamic Content Rules (`client/src/components/DynamicContentRulesSection.tsx`)
 
-- Static vs dynamic content modes; field path (dot notation) into personalization **`data`**.
+- Static vs dynamic content modes; **field path** uses a fixed **`data.`** prefix in the UI (user types the remainder); stored paths always start with **`data.`** and resolve against `{ data: profilePayload }` (`personalizationFieldPath.ts`, `normalizeRulesFieldPath` in `eventDynamicRulesSlice`).
 - Mapping rows include an **Operator** (equals, gt, lt, gte, lte, not equal) and **Example API Response Value** as compare threshold; first matching row wins.
 - Preview on Mock Events uses the **simulated** personalization payload from Redux (`simulator` slice).
 
 ### Mock Experiences (`client/src/pages/MockContentPage.tsx`)
 
 - Lists events that have **saved** rules (`eventDynamicRules.byEventId`).
-- **Live experience** (`MockExperienceLiveRegion`): receives **`eventSchema`** plus **`eventId`** so refresh reads **`customer_id`** from the shared **`eventPayloads`** store (same as Mock Events cards). **Trigger** on this page aligns **`payloadsById[eventId]`** (or default payload from schema), not a bare `buildDefaultPayload` only.
-- After trigger, **Refresh Experience** fetches personalization (or uses simulated data locally), shows **loading skeleton first**, then **either** matched rule content **or** default — avoids default-then-swap flash.
+- **Card header:** Two stacked headings — **`Event Name: X`** and **`Content Rule: Y`**, where **Y** is the Panel title suffix from Dynamic Content Rules (`panelTitleSuffixFromSaved`, `panelTitle.ts`).
+- **Live experience** (`MockExperienceLiveRegion`): **`eventSchema`** + **`eventId`**; **`customer_id`** from **`eventPayloads`** (same as Mock Events). **Saved default** renders **immediately** (before Trigger). **Refresh Experience** fetches personalization and shows full resolution (matched rule or default); loading replaces the live body with a skeleton. **Reset to Default Experience** applies **`forceDefault`** on the **last** fetched payload (no new API call). **Trigger** uses **`payloadsById[eventId]`** like the home card.
 - **Saved default** lives in a collapsible reference block.
 
 ### Publish / Kafka
@@ -64,7 +65,11 @@ A **GrowthLoop-style PoC demo**: mock events (schemas + payloads), optional publ
 ### Other copy / UX notes
 
 - Header nav: **Mock Experiences** (was Mock Content).
-- Dynamic rules labels: “API Response Value and Corresponding Content”, “Example API Response Value”, “Field path to target API Response value”.
+- Dynamic rules mapping labels (rows / field path label text) unchanged; Mock Events collapsible **summary** lines were shortened (see **Recent interaction summary**).
+
+### Per-event visual accent (Mock Events + Mock Experiences)
+
+- Cards sharing the same **`eventId`** use the same subtle border wash and **themed primary/secondary buttons** inside the card, picked by hashing the id into a fixed palette (`eventTheme.ts`, `getEventThemeStyle`, `.mock-event-card` / `.mock-experience-card` in `index.css`).
 
 ## Environment variables (cheat sheet)
 
@@ -90,6 +95,22 @@ Supabase, personalization proxy, optional **KafkaJS** brokers (optional if only 
 
 Redux persist whitelist includes `mockEvents`, **`eventPayloads`**, `eventDynamicRules`, `simulator`, `branding` — **not** `experienceRefresh` (session-only). **Reset demo data** (`DemoResetButton`) clears **`eventPayloads`** along with mock events and rules (local-only flow).
 
+## Recent interaction summary
+
+Work reflected in this doc (aligned roughly with **May 2026** sessions):
+
+1. **`customer_id` + payloads:** Refresh Experience uses **`customer_id`** from each mock event’s payload (`eventPayloads`, `extractCustomerIdFromPayload`), not the Personalization page field; new mock events require root **`customer_id`** (string) on client and server.
+
+2. **`data.` field paths:** Dynamic Content Rules paths are rooted at **`data.`** to match API JSON; preview and live resolve wrap profile data as **`{ data: … }`** (`personalizationFieldPath.ts`, `experienceResolve.ts`).
+
+3. **Mock Events labeling:** **`Event Name: …`** on cards; collapsible summaries **GrowthLoop Event Schema**, **Mock Event Payload**, **Dynamic Content Rules**.
+
+4. **Mock Experiences labeling:** Stacked **`Event Name:`** / **`Content Rule:`** headers; **Content Rule** shows the Panel title **suffix** only (`panelTitle.ts`).
+
+5. **Per-event color pairing:** Same **`eventId`** → same accent on the Mock Events card and its Mock Experiences card (`eventTheme.ts`).
+
+6. **Live experience lifecycle:** Default content shows **before** Trigger; **Refresh** applies personalization resolution; **Reset to Default Experience** uses **`resolveLiveExperience(..., { forceDefault: true })`** with the last snapshot—supports repeatable demos (`MockExperienceLiveRegion.tsx`).
+
 ## Build / deploy hints
 
 - **Vercel:** Root = repo root (where `vercel.json` + `api/` + `client/` live). Preset **Other**; build/output driven by `vercel.json`. SPA rewrite excludes `/api/*`.
@@ -107,7 +128,10 @@ Redux persist whitelist includes `mockEvents`, **`eventPayloads`**, `eventDynami
 - Event payloads (per mock event): `client/src/store/eventPayloadsSlice.ts`
 - `customer_id` from aligned payload: `client/src/lib/customerIdFromPayload.ts`
 - Schema rule (root `customer_id` string): `client/src/lib/mockEventSchemaRules.ts`
-- Rules + operators: `client/src/store/eventDynamicRulesSlice.ts`, `client/src/lib/ruleMatch.ts`, `client/src/lib/experienceResolve.ts`
+- Rules + operators: `client/src/store/eventDynamicRulesSlice.ts`, `client/src/lib/ruleMatch.ts`, `client/src/lib/experienceResolve.ts` (`forceDefault` option)
+- Field path `data.` helpers: `client/src/lib/personalizationFieldPath.ts`
+- Panel title suffix for Mock Experiences header: `client/src/lib/panelTitle.ts`
+- Per-event card/button accents: `client/src/lib/eventTheme.ts`
 - Live experience UI: `client/src/components/MockExperienceLiveRegion.tsx`
 - Refresh gate: `client/src/store/experienceRefreshSlice.ts`
 - Personalization fetch: `client/src/lib/personalizationClient.ts` (`customerIdFromMockEvent` vs page-driven path)
@@ -118,4 +142,4 @@ Redux persist whitelist includes `mockEvents`, **`eventPayloads`**, `eventDynami
 
 ---
 
-*Last aligned with implementation in this workspace as of the session that added **`eventPayloads`**, required schema **`customer_id`**, and Refresh Experience using mock-payload **`customer_id`** only (not the Personalization page field).*
+*Last aligned with implementation in this workspace as of the session that documented **Recent interaction summary** items: **`data.`** field paths, Mock Events / Mock Experiences copy and headers, **eventTheme** accents, and live experience **default → refresh → reset** behavior.*
