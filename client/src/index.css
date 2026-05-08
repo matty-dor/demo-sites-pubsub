@@ -332,6 +332,16 @@ body {
   border-bottom: 1px solid var(--border);
 }
 
+.default-content-row {
+  grid-template-columns: minmax(9rem, auto) 1fr;
+}
+
+@media (max-width: 720px) {
+  .default-content-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .default-dynamic-wrap {
   margin-top: 0.75rem;
 }

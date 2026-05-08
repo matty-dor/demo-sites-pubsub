@@ -194,7 +194,7 @@ export function DynamicContentRulesSection({ eventId, eventName }: Props) {
     'Preview uses the simulated Personalization response from the Personalization API page (local mode).'
 
   const radioHelp =
-    'Will your content contain dynamic values from your event payload, or will the content be static? For example, if an event payload contained distance_from_store, and you want that value in a string like “You are ${distance_from_store} feet from our location!”, that would be dynamic. If you want something hard-coded like “You\'re close to our store!”, that would be static.'
+    'Will your content contain the value from your event payload (dynamic), or will the content be hardcoded (static)? For example, if an event payload contained "cart_subtotal," and you want that value to appear in text like “You have {{cart_subtotal}} in your cart!”, that would be dynamic. If you want something like “You\'ve qualified for free shipping!”, that would be static.'
 
   return (
     <details className="mock-event-collapsible">
@@ -306,47 +306,49 @@ export function DynamicContentRulesSection({ eventId, eventName }: Props) {
 
             <div className="default-content-block">
               <h4 className="dynamic-rules-variation-heading">Default Content</h4>
-              <label className="stack-label">
-                <span>Content Type</span>
-                <select
-                  className="input"
-                  value={defaultStatic.contentType}
-                  onChange={(e) =>
-                    setDefaultStatic((d) => ({
-                      ...d,
-                      contentType: e.target.value as StaticContentType,
-                    }))
-                  }
-                >
-                  <option value="text">Text</option>
-                  <option value="imageUrl">Image URL</option>
-                </select>
-              </label>
-              <label className="stack-label">
-                <span>Content</span>
-                {defaultStatic.contentType === 'text' ? (
-                  <textarea
-                    className="input textarea"
-                    rows={4}
-                    placeholder="Place content here"
-                    value={defaultStatic.content}
+              <div className="mapping-row-static default-content-row">
+                <label className="stack-label mapping-cell">
+                  <span className="muted small">Content Type</span>
+                  <select
+                    className="input"
+                    value={defaultStatic.contentType}
                     onChange={(e) =>
-                      setDefaultStatic((d) => ({ ...d, content: e.target.value }))
+                      setDefaultStatic((d) => ({
+                        ...d,
+                        contentType: e.target.value as StaticContentType,
+                      }))
                     }
-                  />
-                ) : (
-                  <input
-                    className={`input ${defaultStatic.content.trim() && !isValidHttpUrl(defaultStatic.content) ? 'input-invalid' : ''}`}
-                    type="url"
-                    inputMode="url"
-                    placeholder="Place content here"
-                    value={defaultStatic.content}
-                    onChange={(e) =>
-                      setDefaultStatic((d) => ({ ...d, content: e.target.value }))
-                    }
-                  />
-                )}
-              </label>
+                  >
+                    <option value="text">Text</option>
+                    <option value="imageUrl">Image URL</option>
+                  </select>
+                </label>
+                <label className="stack-label mapping-cell">
+                  <span className="muted small">Content</span>
+                  {defaultStatic.contentType === 'text' ? (
+                    <textarea
+                      className="input textarea textarea-compact"
+                      rows={3}
+                      placeholder="Place content here"
+                      value={defaultStatic.content}
+                      onChange={(e) =>
+                        setDefaultStatic((d) => ({ ...d, content: e.target.value }))
+                      }
+                    />
+                  ) : (
+                    <input
+                      className={`input ${defaultStatic.content.trim() && !isValidHttpUrl(defaultStatic.content) ? 'input-invalid' : ''}`}
+                      type="url"
+                      inputMode="url"
+                      placeholder="Place content here"
+                      value={defaultStatic.content}
+                      onChange={(e) =>
+                        setDefaultStatic((d) => ({ ...d, content: e.target.value }))
+                      }
+                    />
+                  )}
+                </label>
+              </div>
             </div>
 
             {staticMappings.map((m, i) => (
