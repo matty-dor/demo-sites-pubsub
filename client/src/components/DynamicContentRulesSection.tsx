@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   fieldPathSuffixFromStored,
   normalizeRulesFieldPath,
@@ -47,10 +48,17 @@ export function DynamicContentRulesSection({ eventId, eventName }: Props) {
   const dispatch = useAppDispatch()
   const stored = useAppSelector((s) => s.eventDynamicRules.byEventId[eventId])
   const simData = useAppSelector((s) => s.simulator.personalizationResponse?.data)
+  const personalizationResponse = useAppSelector(
+    (s) => s.simulator.personalizationResponse,
+  )
+  const lastPersonalizationFetchedAt = useAppSelector(
+    (s) => s.simulator.lastPersonalizationFetchedAt,
+  )
 
   const [titleSuffix, setTitleSuffix] = useState('')
   const [contentSourceMode, setContentSourceMode] =
-    useState<ContentSourceMode>('dynamic')
+    useState<ContentSourceMode>('static')
+  const [showPersonalizationPeek, setShowPersonalizationPeek] = useState(false)
   const [fieldPathSuffix, setFieldPathSuffix] = useState('')
   const [dynamicMappings, setDynamicMappings] = useState<MappingRow[]>(
     createDefaultDynamicRules().dynamicMappings,
@@ -69,7 +77,7 @@ export function DynamicContentRulesSection({ eventId, eventName }: Props) {
     const normalized = normalizeDynamicContentState(stored)
     setTitleSuffix(panelTitleSuffixFromSaved(normalized.title, eventName))
     setContentSourceMode(normalized.contentSourceMode)
-    setFieldPathSuffix(fieldPathSuffixFromStored(normalized.fieldPath))
+    setFieldPathSuffix(stored ? fieldPathSuffixFromStored(normalized.fieldPath) : '')
     setDynamicMappings(normalized.dynamicMappings)
     setStaticMappings(normalized.staticMappings)
     setDefaultDynamicContent(normalized.defaultDynamicContent)
@@ -193,8 +201,11 @@ export function DynamicContentRulesSection({ eventId, eventName }: Props) {
       <summary className="mock-event-collapsible-summary">Dynamic Content Rules</summary>
       <div className="mock-event-collapsible-inner dynamic-rules-inner">
         <p className="muted small dynamic-rules-lede">
-          Map resolved API values to content. Same simulated personalization payload applies to all
-          events.
+          The content variations you set below will be visible on the Experiences page. When you
+          trigger the event, a corresponding GrowthLoop Journey will be initiated. The Journey will
+          update values on the Personalization API in real-time. When you reload the experience,
+          the response from the Personalization API will dictate which content variation is
+          displayed.
         </p>
 
         {saveFlash && <div className="banner banner-success dynamic-rules-saved">Saved.</div>}
@@ -203,7 +214,7 @@ export function DynamicContentRulesSection({ eventId, eventName }: Props) {
         )}
 
         <label className="stack-label">
-          <span>Panel title</span>
+          <span>Content Title</span>
           <div className="panel-title-field">
             <span className="panel-title-prefix" title="Derived from event name">
               {eventName}:{' '}
@@ -213,12 +224,9 @@ export function DynamicContentRulesSection({ eventId, eventName }: Props) {
               value={titleSuffix}
               onChange={(e) => setTitleSuffix(e.target.value)}
               placeholder="Dynamic Hero"
-              aria-label={`Panel title after ${eventName} prefix`}
+              aria-label={`Content title after ${eventName} prefix`}
             />
           </div>
-          <span className="muted small panel-title-hint">
-            Saved as <code>{buildPanelTitle(eventName, titleSuffix)}</code>
-          </span>
         </label>
 
         <fieldset className="content-source-fieldset">
@@ -247,7 +255,36 @@ export function DynamicContentRulesSection({ eventId, eventName }: Props) {
         </fieldset>
 
         <label className="stack-label">
-          <span>Field path to target API Response value</span>
+          <div className="stack-label-row field-path-label-row">
+            <span>Field path to target API Response value</span>
+            <button
+              type="button"
+              className="link-button field-path-peek-toggle"
+              aria-expanded={showPersonalizationPeek}
+              onClick={(e) => {
+                e.preventDefault()
+                setShowPersonalizationPeek((v) => !v)
+              }}
+            >
+              {showPersonalizationPeek ? 'Hide' : 'Display'} the most recent Personalization API
+              response
+            </button>
+          </div>
+          {showPersonalizationPeek && (
+            <div className="field-path-personalization-peek">
+              {lastPersonalizationFetchedAt && personalizationResponse ?
+                <pre className="result-block field-path-peek-pre">
+                  {JSON.stringify(personalizationResponse, null, 2)}
+                </pre>
+              : <p className="muted small field-path-peek-empty">
+                  No recent Personalization API response yet.{' '}
+                  <Link to="/personalization" className="link-inline">
+                    Click here to call the Personalization API.
+                  </Link>
+                </p>
+              }
+            </div>
+          )}
           <div className="panel-title-field">
             <span className="panel-title-prefix" title="Always under the response data object">
               data.
@@ -256,117 +293,19 @@ export function DynamicContentRulesSection({ eventId, eventName }: Props) {
               className="input panel-title-suffix"
               value={fieldPathSuffix}
               onChange={(e) => setFieldPathSuffix(e.target.value)}
-              placeholder="e.g. entity_id or audiences.31325.phone"
+              placeholder="Refer to a Personalization API response to insert the proper field path."
               aria-label="Dot path under data (after data. prefix)"
               autoComplete="off"
             />
           </div>
-          <span className="muted small panel-title-hint">
-            Matches the Personalization response shape: profile fields live under{' '}
-            <code>data</code>. Full path: <code>{fullFieldPath}</code>
-          </span>
         </label>
 
         {contentSourceMode === 'static' && (
           <>
-            <h3 className="dynamic-rules-subheading">
-              API Response Value and Corresponding Content
-            </h3>
-            {staticMappings.map((m, i) => (
-              <div key={i} className="mapping-row-static">
-                <label className="stack-label mapping-cell">
-                  <span className="muted small">Operator</span>
-                  <select
-                    className="input"
-                    value={m.operator}
-                    onChange={(e) => {
-                      const next = staticMappings.slice()
-                      next[i] = {
-                        ...next[i],
-                        operator: e.target.value as ComparisonOperator,
-                      }
-                      setStaticMappings(next)
-                    }}
-                  >
-                    {COMPARISON_OPERATORS.map((op) => (
-                      <option key={op} value={op}>
-                        {OPERATOR_LABELS[op]}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="stack-label mapping-cell">
-                  <span className="muted small">Example API Response Value</span>
-                  <input
-                    className="input"
-                    placeholder="Compare to this value (e.g. luxury or 10)"
-                    value={m.value}
-                    onChange={(e) => {
-                      const next = staticMappings.slice()
-                      next[i] = { ...next[i], value: e.target.value }
-                      setStaticMappings(next)
-                    }}
-                  />
-                </label>
-                <label className="stack-label mapping-cell">
-                  <span className="muted small">Content Type</span>
-                  <select
-                    className="input"
-                    value={m.contentType}
-                    onChange={(e) => {
-                      const next = staticMappings.slice()
-                      next[i] = {
-                        ...next[i],
-                        contentType: e.target.value as StaticContentType,
-                      }
-                      setStaticMappings(next)
-                    }}
-                  >
-                    <option value="text">Text</option>
-                    <option value="imageUrl">Image URL</option>
-                  </select>
-                </label>
-                <label className="stack-label mapping-cell">
-                  <span className="muted small">Content</span>
-                  {m.contentType === 'text' ? (
-                    <textarea
-                      className="input textarea textarea-compact"
-                      rows={3}
-                      placeholder="Place content here"
-                      value={m.content}
-                      onChange={(e) => {
-                        const next = staticMappings.slice()
-                        next[i] = { ...next[i], content: e.target.value }
-                        setStaticMappings(next)
-                      }}
-                    />
-                  ) : (
-                    <input
-                      className={`input ${m.content.trim() && !isValidHttpUrl(m.content) ? 'input-invalid' : ''}`}
-                      type="url"
-                      inputMode="url"
-                      placeholder="Place content here"
-                      value={m.content}
-                      onChange={(e) => {
-                        const next = staticMappings.slice()
-                        next[i] = { ...next[i], content: e.target.value }
-                        setStaticMappings(next)
-                      }}
-                    />
-                  )}
-                </label>
-              </div>
-            ))}
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={() => setStaticMappings([...staticMappings, emptyStaticRow()])}
-            >
-              Add mapping
-            </button>
+            <h3 className="dynamic-rules-subheading">Content Variations</h3>
 
             <div className="default-content-block">
-              <h3 className="dynamic-rules-subheading">Default Content</h3>
+              <h4 className="dynamic-rules-variation-heading">Default Content</h4>
               <label className="stack-label">
                 <span>Content Type</span>
                 <select
@@ -409,6 +348,116 @@ export function DynamicContentRulesSection({ eventId, eventName }: Props) {
                 )}
               </label>
             </div>
+
+            {staticMappings.map((m, i) => (
+              <div key={i} className="content-variation-block">
+                <div className="content-variation-head">
+                  <h4 className="dynamic-rules-variation-heading">
+                    Content Variation {i + 1}
+                  </h4>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-small"
+                    aria-label={`Remove Content Variation ${i + 1}`}
+                    onClick={() => {
+                      setStaticMappings((prev) => prev.filter((_, idx) => idx !== i))
+                    }}
+                  >
+                    Remove
+                  </button>
+                </div>
+                <div className="mapping-row-static">
+                  <label className="stack-label mapping-cell">
+                    <span className="muted small">Operator</span>
+                    <select
+                      className="input"
+                      value={m.operator}
+                      onChange={(e) => {
+                        const next = staticMappings.slice()
+                        next[i] = {
+                          ...next[i],
+                          operator: e.target.value as ComparisonOperator,
+                        }
+                        setStaticMappings(next)
+                      }}
+                    >
+                      {COMPARISON_OPERATORS.map((op) => (
+                        <option key={op} value={op}>
+                          {OPERATOR_LABELS[op]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="stack-label mapping-cell">
+                    <span className="muted small">Example API Response Value</span>
+                    <input
+                      className="input"
+                      placeholder="Compare to this value (e.g. luxury or 10)"
+                      value={m.value}
+                      onChange={(e) => {
+                        const next = staticMappings.slice()
+                        next[i] = { ...next[i], value: e.target.value }
+                        setStaticMappings(next)
+                      }}
+                    />
+                  </label>
+                  <label className="stack-label mapping-cell">
+                    <span className="muted small">Content Type</span>
+                    <select
+                      className="input"
+                      value={m.contentType}
+                      onChange={(e) => {
+                        const next = staticMappings.slice()
+                        next[i] = {
+                          ...next[i],
+                          contentType: e.target.value as StaticContentType,
+                        }
+                        setStaticMappings(next)
+                      }}
+                    >
+                      <option value="text">Text</option>
+                      <option value="imageUrl">Image URL</option>
+                    </select>
+                  </label>
+                  <label className="stack-label mapping-cell">
+                    <span className="muted small">Content</span>
+                    {m.contentType === 'text' ? (
+                      <textarea
+                        className="input textarea textarea-compact"
+                        rows={3}
+                        placeholder="Place content here"
+                        value={m.content}
+                        onChange={(e) => {
+                          const next = staticMappings.slice()
+                          next[i] = { ...next[i], content: e.target.value }
+                          setStaticMappings(next)
+                        }}
+                      />
+                    ) : (
+                      <input
+                        className={`input ${m.content.trim() && !isValidHttpUrl(m.content) ? 'input-invalid' : ''}`}
+                        type="url"
+                        inputMode="url"
+                        placeholder="Place content here"
+                        value={m.content}
+                        onChange={(e) => {
+                          const next = staticMappings.slice()
+                          next[i] = { ...next[i], content: e.target.value }
+                          setStaticMappings(next)
+                        }}
+                      />
+                    )}
+                  </label>
+                </div>
+              </div>
+            ))}
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setStaticMappings([...staticMappings, emptyStaticRow()])}
+            >
+              Add mapping
+            </button>
           </>
         )}
 

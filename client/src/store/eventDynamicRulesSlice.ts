@@ -50,7 +50,7 @@ export type LegacyDynamicContentState = {
 export function createDefaultDynamicRules(): DynamicContentState {
   return {
     title: 'Dynamic hero',
-    contentSourceMode: 'dynamic',
+    contentSourceMode: 'static',
     fieldPath: normalizeRulesFieldPath('segment'),
     dynamicMappings: [
       { operator: 'eq', value: '', imageUrl: '' },
