@@ -37,10 +37,10 @@ export function AppHeader() {
       </div>
       <nav className="app-nav">
         <NavLink to="/" end className={navLinkClass}>
-          Mock Events
+          Events
         </NavLink>
         <NavLink to="/mock-content" className={navLinkClass}>
-          Mock Experiences
+          Experiences
         </NavLink>
         <NavLink to="/personalization" className={navLinkClass}>
           Personalization API

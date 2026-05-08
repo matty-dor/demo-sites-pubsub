@@ -51,6 +51,35 @@ export async function mockEventsRoutes(app: FastifyInstance) {
     return { event: data };
   });
 
+  app.patch('/api/mock-events/:id', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const parsed = mockEventSchema.safeParse(req.body);
+    if (!parsed.success) {
+      reply.code(400);
+      return {
+        error: 'Invalid mock event',
+        details: parsed.error.flatten(),
+      };
+    }
+
+    const sb = getSupabase();
+    const { data, error } = await sb
+      .from('mock_events')
+      .update({
+        name: parsed.data.name,
+        schema: parsed.data.schema,
+      })
+      .eq('id', id)
+      .select('id,name,schema,created_at')
+      .single();
+
+    if (error) {
+      reply.code(error.code === 'PGRST116' ? 404 : 500);
+      return { error: error.message };
+    }
+    return { event: data };
+  });
+
   app.delete('/api/mock-events/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
     const sb = getSupabase();

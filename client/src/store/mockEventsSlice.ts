@@ -34,9 +34,23 @@ export const mockEventsSlice = createSlice({
     removeMockEvent: (state, action: PayloadAction<string>) => {
       state.events = state.events.filter((e) => e.id !== action.payload)
     },
+    updateMockEvent: (
+      state,
+      action: PayloadAction<{ id: string; name: string; schema: SchemaNode[] }>,
+    ) => {
+      const { id, name, schema } = action.payload
+      const idx = state.events.findIndex((e) => e.id === id)
+      if (idx >= 0) {
+        state.events[idx] = { ...state.events[idx], name, schema }
+      }
+    },
     resetMockEvents: () => initialState,
   },
 })
 
-export const { addMockEvent, removeMockEvent, resetMockEvents } =
-  mockEventsSlice.actions
+export const {
+  addMockEvent,
+  removeMockEvent,
+  updateMockEvent,
+  resetMockEvents,
+} = mockEventsSlice.actions

@@ -11,15 +11,15 @@ export interface SchemaNode {
 export function newSchemaNode(type: FieldType): SchemaNode {
   const id = crypto.randomUUID()
   if (type === 'object') {
-    return { id, key: 'object', type, fields: [] }
+    return { id, key: '', type, fields: [] }
   }
   if (type === 'array') {
     return {
       id,
-      key: 'items',
+      key: '',
       type,
-      item: { id: crypto.randomUUID(), key: 'item', type: 'object', fields: [] },
+      item: { id: crypto.randomUUID(), key: '', type: 'object', fields: [] },
     }
   }
-  return { id, key: 'field', type }
+  return { id, key: '', type }
 }

@@ -1,16 +1,17 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useMutation } from '@tanstack/react-query'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { api, ApiError } from '../api/http'
 import { backendStorageEnabled } from '../config/storageMode'
-import { useAppDispatch } from '../store/hooks'
-import { addMockEvent } from '../store/mockEventsSlice'
+import { useAppDispatch, useAppSelector } from '../store/hooks'
+import { updateMockEvent } from '../store/mockEventsSlice'
+import { setPayloadForEvent } from '../store/eventPayloadsSlice'
 import {
   CUSTOMER_ID_SCHEMA_HINT,
   LOCKED_ROOT_KEYS,
-  createInitialEventSchema,
   schemaHasEmptyKey,
   schemaHasRequiredCustomerId,
+  withLockedCustomerIdRow,
 } from '../lib/mockEventSchemaRules'
 import {
   EVENT_NAME_HINT,
@@ -20,26 +21,73 @@ import {
   isDuplicateEventName,
   useExistingEventNames,
 } from '../hooks/useExistingEventNames'
+import { alignPayloadToMockSchema } from '../lib/payloadAlign'
 import type { SchemaNode } from '../types/schema'
 import { SchemaEditor, appendNewSchemaField } from '../components/SchemaEditor'
 
-export function CreateMockEventPage() {
+type ApiMockEventRow = {
+  id: string
+  name: string
+  schema: SchemaNode[]
+  created_at: string
+}
+
+export function EditMockEventPage() {
+  const { id = '' } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const backend = backendStorageEnabled()
   const dispatch = useAppDispatch()
+
+  const reduxEvent = useAppSelector((s) =>
+    s.mockEvents.events.find((e) => e.id === id),
+  )
+  const existingPayload = useAppSelector(
+    (s) => s.eventPayloads.byEventId[id] ?? {},
+  )
+
+  const { data: backendData, isLoading } = useQuery({
+    queryKey: ['mock-events'],
+    queryFn: () => api<{ events: ApiMockEventRow[] }>('/api/mock-events'),
+    enabled: backend,
+  })
+
+  const sourceEvent = useMemo(() => {
+    if (backend) {
+      const row = backendData?.events?.find((e) => e.id === id)
+      return row ? { id: row.id, name: row.name, schema: row.schema ?? [] } : null
+    }
+    return reduxEvent
+      ? { id: reduxEvent.id, name: reduxEvent.name, schema: reduxEvent.schema ?? [] }
+      : null
+  }, [backend, backendData, id, reduxEvent])
+
   const [name, setName] = useState('')
-  const [schema, setSchema] = useState<SchemaNode[]>(() => createInitialEventSchema())
+  const [schema, setSchema] = useState<SchemaNode[]>([])
   const [error, setError] = useState<string | null>(null)
-  const takenNames = useExistingEventNames()
+  const [hydrated, setHydrated] = useState(false)
+  const takenNames = useExistingEventNames(id)
   const isDuplicate = isDuplicateEventName(name, takenNames)
+
+  useEffect(() => {
+    if (!sourceEvent || hydrated) return
+    setName(sanitizeEventName(sourceEvent.name))
+    setSchema(withLockedCustomerIdRow(sourceEvent.schema))
+    setHydrated(true)
+  }, [sourceEvent, hydrated])
 
   const saveRemote = useMutation({
     mutationFn: () =>
-      api<{ event: { id: string } }>('/api/mock-events', {
-        method: 'POST',
+      api<{ event: ApiMockEventRow }>(`/api/mock-events/${id}`, {
+        method: 'PATCH',
         body: JSON.stringify({ name: name.trim(), schema }),
       }),
     onSuccess: () => {
+      dispatch(
+        setPayloadForEvent({
+          eventId: id,
+          payload: alignPayloadToMockSchema(schema, existingPayload),
+        }),
+      )
       navigate('/')
     },
     onError: (err: Error) => {
@@ -67,24 +115,54 @@ export function CreateMockEventPage() {
       saveRemote.mutate()
       return
     }
-    dispatch(addMockEvent({ name: name.trim(), schema }))
+    dispatch(updateMockEvent({ id, name: name.trim(), schema }))
+    dispatch(
+      setPayloadForEvent({
+        eventId: id,
+        payload: alignPayloadToMockSchema(schema, existingPayload),
+      }),
+    )
     navigate('/')
   }
 
   const saveDisabled =
+    !hydrated ||
     !name.trim() ||
     schema.length === 0 ||
     schemaHasEmptyKey(schema) ||
     isDuplicate ||
     (backend && saveRemote.isPending)
 
+  if (backend && isLoading) {
+    return (
+      <div className="page">
+        <h1>Edit event</h1>
+        <p className="muted">Loading…</p>
+      </div>
+    )
+  }
+
+  if (!sourceEvent) {
+    return (
+      <div className="page">
+        <h1>Edit event</h1>
+        <div className="banner banner-error">
+          Event not found. <Link to="/">Back to Events</Link>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="page">
-      <h1>Create event</h1>
-      <p className="lede">
-        Name the event (e.g. <code>abandoned_cart</code>), then define payload fields. Saving adds
-        a card on the Events page with a generated payload form.
-      </p>
+      <h1>Edit event</h1>
+
+      <div className="banner banner-warning" role="status">
+        <strong>Heads up:</strong> changing this event&apos;s schema may diverge from the
+        registered <strong>GrowthLoop Event Schema</strong>. After saving, copy the updated
+        GrowthLoop Event Schema from the Events card and re-register it in GrowthLoop so the
+        registered structure matches what this app publishes.
+      </div>
 
       {error && <div className="banner banner-error">{error}</div>}
 
@@ -121,6 +199,9 @@ export function CreateMockEventPage() {
       />
 
       <div className="actions-row">
+        <Link to="/" className="btn btn-ghost">
+          Cancel
+        </Link>
         <button
           type="button"
           className="btn btn-secondary"
@@ -134,7 +215,7 @@ export function CreateMockEventPage() {
           disabled={saveDisabled}
           onClick={save}
         >
-          Save event
+          Save changes
         </button>
       </div>
     </div>

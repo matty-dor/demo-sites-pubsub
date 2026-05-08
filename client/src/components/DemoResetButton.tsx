@@ -17,7 +17,7 @@ export function DemoResetButton() {
   const reset = useCallback(async () => {
     if (
       !window.confirm(
-        'Clear all mock events, event payloads, dynamic content rules, and simulated personalization data in this browser?',
+        'Clear all events, event payloads, dynamic content rules, and simulated personalization data in this browser?',
       )
     ) {
       return

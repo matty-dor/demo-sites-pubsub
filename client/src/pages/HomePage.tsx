@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useStore } from 'react-redux'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
@@ -22,6 +22,10 @@ import { removeMockEvent } from '../store/mockEventsSlice'
 import type { SchemaNode } from '../types/schema'
 import { withEventTypeFirst } from '../lib/eventTypePayload'
 import { alignPayloadToMockSchema } from '../lib/payloadAlign'
+import {
+  isPayloadComplete,
+  listIncompleteRootKeys,
+} from '../lib/payloadCompleteness'
 import { buildDefaultPayload } from '../lib/schemaDefaults'
 import { PayloadEditor } from '../components/PayloadEditor'
 import { GrowthLoopSchemaPanel } from '../components/GrowthLoopSchemaPanel'
@@ -65,6 +69,9 @@ export function HomePage() {
 
   const { triggerPublish, publishStatus, publishPending } = useMockEventPublish()
 
+  const [triggerAttemptedById, setTriggerAttemptedById] = useState<Record<string, boolean>>({})
+  const [payloadOpenById, setPayloadOpenById] = useState<Record<string, boolean>>({})
+
   const refreshPersonalization = useCallback(
     async (eventId: string, schema: SchemaNode[], eventName: string) => {
       const state = store.getState() as RootState
@@ -104,7 +111,7 @@ export function HomePage() {
     () =>
       (!backend || !isLoading) && events.length === 0 ? (
         <p className="muted">
-          No mock events yet. Use <strong>Create New Mock Event</strong> above to define a schema and
+          No events yet. Use <strong>Create New Event</strong> above to define a schema and
           trigger publishes from here.
         </p>
       ) : null,
@@ -115,13 +122,13 @@ export function HomePage() {
     return (
       <div className="page">
         <div className="page-title-row">
-          <h1>Mock Events</h1>
+          <h1>Events</h1>
           <Link to="/mock-events/new" className="btn btn-primary page-title-action">
-            Create New Mock Event
+            Create New Event
           </Link>
         </div>
         <div className="banner banner-error">
-          Could not load mock events. Is the API running and configured? {(error as Error).message}
+          Could not load events. Is the API running and configured? {(error as Error).message}
         </div>
       </div>
     )
@@ -130,13 +137,13 @@ export function HomePage() {
   return (
     <div className="page">
       <div className="page-title-row">
-        <h1>Mock Events</h1>
+        <h1>Events</h1>
         <Link to="/mock-events/new" className="btn btn-primary page-title-action">
-          Create New Mock Event
+          Create New Event
         </Link>
       </div>
       <p className="lede">
-        Each card is a saved event schema. Fill mock payload values, then trigger a publish. With{' '}
+        Each card is a saved event schema. Fill payload values, then trigger a publish. With{' '}
         <strong>local storage</strong>, nothing leaves your browser until you switch to the API.
       </p>
       {emptyHint}
@@ -145,6 +152,13 @@ export function HomePage() {
         {events.map((ev) => {
           const schema = ev.schema ?? []
           const payload = payloadsById[ev.id] ?? buildDefaultPayload(schema, ev.name)
+          const payloadComplete = isPayloadComplete(schema, payload)
+          const triggerAttempted = triggerAttemptedById[ev.id] === true
+          const showIncompleteHint = triggerAttempted && !payloadComplete
+          const incompleteKeys = showIncompleteHint
+            ? listIncompleteRootKeys(schema, payload)
+            : []
+          const payloadOpen = payloadOpenById[ev.id] ?? false
           return (
             <article
               key={ev.id}
@@ -155,23 +169,47 @@ export function HomePage() {
                 <h2>
                   Event Name: {ev.name}
                 </h2>
-                {!backend && (
-                  <button
-                    type="button"
+                <div className="card-head-actions">
+                  <Link
+                    to={`/mock-events/${ev.id}/edit`}
                     className="btn btn-ghost"
-                    onClick={() => {
-                      dispatch(removeMockEvent(ev.id))
-                      dispatch(removeRulesForEvent(ev.id))
-                      dispatch(removePayloadForEvent(ev.id))
-                    }}
                   >
-                    Delete
-                  </button>
-                )}
+                    Edit
+                  </Link>
+                  {!backend && (
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      onClick={() => {
+                        dispatch(removeMockEvent(ev.id))
+                        dispatch(removeRulesForEvent(ev.id))
+                        dispatch(removePayloadForEvent(ev.id))
+                      }}
+                    >
+                      Delete
+                    </button>
+                  )}
+                </div>
               </div>
               <GrowthLoopSchemaPanel eventName={ev.name} rootFields={schema} />
-              <details className="mock-event-collapsible">
-                <summary className="mock-event-collapsible-summary">Mock Event Payload</summary>
+              <details
+                className={`mock-event-collapsible${showIncompleteHint ? ' needs-attention' : ''}`}
+                open={payloadOpen}
+                onToggle={(e) => {
+                  const node = e.currentTarget as HTMLDetailsElement | null
+                  if (!node) return
+                  const isOpen = node.open
+                  setPayloadOpenById((prev) => ({ ...prev, [ev.id]: isOpen }))
+                }}
+              >
+                <summary className="mock-event-collapsible-summary">
+                  Event Payload
+                  {!payloadComplete && (
+                    <span className="payload-required-pill" aria-hidden>
+                      Required fields incomplete
+                    </span>
+                  )}
+                </summary>
                 <div className="mock-event-collapsible-inner">
                   <PayloadEditor
                     schema={schema}
@@ -188,7 +226,19 @@ export function HomePage() {
                   type="button"
                   className="btn btn-primary"
                   disabled={backend && publishPending}
+                  aria-disabled={!payloadComplete || (backend && publishPending)}
+                  title={
+                    payloadComplete
+                      ? undefined
+                      : 'Complete all Event Payload fields before triggering.'
+                  }
                   onClick={() => {
+                    if (!payloadComplete) {
+                      setTriggerAttemptedById((prev) => ({ ...prev, [ev.id]: true }))
+                      setPayloadOpenById((prev) => ({ ...prev, [ev.id]: true }))
+                      return
+                    }
+                    setTriggerAttemptedById((prev) => ({ ...prev, [ev.id]: false }))
                     const aligned = withEventTypeFirst(
                       ev.name,
                       alignPayloadToMockSchema(schema, payload),
@@ -208,6 +258,17 @@ export function HomePage() {
                   </button>
                 )}
               </div>
+              {showIncompleteHint && (
+                <p className="payload-required-hint" role="alert">
+                  Complete all Event Payload fields before triggering.
+                  {incompleteKeys.length > 0 && (
+                    <>
+                      {' '}Still needed:{' '}
+                      <code>{incompleteKeys.join(', ')}</code>.
+                    </>
+                  )}
+                </p>
+              )}
               {publishStatus[ev.id] && (
                 <details className="mock-event-collapsible">
                   <summary className="mock-event-collapsible-summary">

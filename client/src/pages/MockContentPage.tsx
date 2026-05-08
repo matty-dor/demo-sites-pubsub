@@ -73,7 +73,7 @@ export function MockContentPage() {
     () =>
       (!backend || !isLoading) && experienceEvents.length === 0 ? (
         <p className="muted">
-          No mock experiences yet. Open <Link to="/">Mock Events</Link>, add{' '}
+          No experiences yet. Open <Link to="/">Events</Link>, add{' '}
           <strong>Dynamic Content Rules</strong> to an event, and click{' '}
           <strong>Save rules</strong>. Saved rules appear here with a trigger and default content.
         </p>
@@ -84,9 +84,9 @@ export function MockContentPage() {
   if (backend && error) {
     return (
       <div className="page">
-        <h1>Mock Experiences</h1>
+        <h1>Experiences</h1>
         <div className="banner banner-error">
-          Could not load mock events. Is the API running and configured? {(error as Error).message}
+          Could not load events. Is the API running and configured? {(error as Error).message}
         </div>
       </div>
     )
@@ -94,9 +94,9 @@ export function MockContentPage() {
 
   return (
     <div className="page">
-      <h1>Mock Experiences</h1>
+      <h1>Experiences</h1>
       <p className="lede">
-        Each card mirrors a mock event that has saved Dynamic Content Rules. Trigger publish, then{' '}
+        Each card mirrors an event that has saved Dynamic Content Rules. Trigger publish, then{' '}
         <strong>Refresh Experience</strong> to load the Personalization API and render content from
         your rules (matched row or default) without flashing placeholder content first.
       </p>

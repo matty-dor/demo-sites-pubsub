@@ -1,5 +1,75 @@
+import { useEffect, useRef, useState } from 'react'
 import type { SchemaNode } from '../types/schema'
 import { defaultValueForNode } from '../lib/schemaDefaults'
+
+/** Restricts a typed/pasted string to a valid numeric in-progress form: optional `-`, digits, single `.`. */
+function sanitizeNumberInput(raw: string): string {
+  let s = raw.replace(/[^\d.\-]/g, '')
+  if (s.includes('-')) {
+    const negative = s.startsWith('-')
+    s = (negative ? '-' : '') + s.replace(/-/g, '')
+  }
+  const firstDot = s.indexOf('.')
+  if (firstDot !== -1) {
+    s = s.slice(0, firstDot + 1) + s.slice(firstDot + 1).replace(/\./g, '')
+  }
+  return s
+}
+
+function NumberField({
+  value,
+  onChange,
+}: {
+  value: unknown
+  onChange: (v: number) => void
+}) {
+  const numeric =
+    typeof value === 'number' && Number.isFinite(value) ? value : 0
+  const [text, setText] = useState<string>(numeric === 0 ? '' : String(numeric))
+  const focusedRef = useRef(false)
+
+  useEffect(() => {
+    if (focusedRef.current) return
+    setText(numeric === 0 ? '' : String(numeric))
+  }, [numeric])
+
+  return (
+    <input
+      className="input"
+      type="text"
+      inputMode="decimal"
+      placeholder="0"
+      value={text}
+      onFocus={() => {
+        focusedRef.current = true
+      }}
+      onBlur={() => {
+        focusedRef.current = false
+      }}
+      onKeyDown={(e) => {
+        if (
+          e.key.length === 1 &&
+          !/[0-9.\-]/.test(e.key) &&
+          !e.ctrlKey &&
+          !e.metaKey &&
+          !e.altKey
+        ) {
+          e.preventDefault()
+        }
+      }}
+      onChange={(e) => {
+        const cleaned = sanitizeNumberInput(e.target.value)
+        setText(cleaned)
+        if (cleaned === '' || cleaned === '-' || cleaned === '.') {
+          onChange(0)
+          return
+        }
+        const parsed = Number(cleaned)
+        if (Number.isFinite(parsed)) onChange(parsed)
+      }}
+    />
+  )
+}
 
 function PayloadField({
   node,
@@ -21,14 +91,7 @@ function PayloadField({
         />
       )
     case 'number':
-      return (
-        <input
-          className="input"
-          type="number"
-          value={typeof value === 'number' ? value : 0}
-          onChange={(e) => onChange(Number(e.target.value))}
-        />
-      )
+      return <NumberField value={value} onChange={onChange} />
     case 'boolean':
       return (
         <label className="checkbox-label">

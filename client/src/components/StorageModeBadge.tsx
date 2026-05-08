@@ -5,7 +5,7 @@ export function StorageModeBadge() {
   return (
     <span
       className="storage-badge"
-      title="Mock events: VITE_USE_BACKEND. Personalization HTTP: VITE_USE_BACKEND or VITE_USE_VERCEL_API."
+      title="Events: VITE_USE_BACKEND. Personalization HTTP: VITE_USE_BACKEND or VITE_USE_VERCEL_API."
     >
       {api ? 'Storage: API' : 'Storage: local (Redux)'}
     </span>

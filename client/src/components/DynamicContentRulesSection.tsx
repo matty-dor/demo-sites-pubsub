@@ -205,7 +205,7 @@ export function DynamicContentRulesSection({ eventId, eventName }: Props) {
         <label className="stack-label">
           <span>Panel title</span>
           <div className="panel-title-field">
-            <span className="panel-title-prefix" title="Derived from mock event name">
+            <span className="panel-title-prefix" title="Derived from event name">
               {eventName}:{' '}
             </span>
             <input

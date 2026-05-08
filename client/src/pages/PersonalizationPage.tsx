@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { api, ApiError } from '../api/http'
 import { personalizationHttpEnabled } from '../config/storageMode'
-import { useAppDispatch } from '../store/hooks'
+import { useAppDispatch, useAppSelector } from '../store/hooks'
 import {
   setLastPersonalizationCustomerId,
+  setLastPersonalizationFetchedAt,
   setSimulatedPersonalizationResponse,
 } from '../store/simulatorSlice'
 
@@ -27,11 +28,21 @@ function localStubResponse(customerId: string): ProxyResponse {
   }
 }
 
+function formatFetchedAt(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.valueOf())) return iso
+  return d.toLocaleString(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  })
+}
+
 export function PersonalizationPage() {
   const useHttpProxy = personalizationHttpEnabled()
   const dispatch = useAppDispatch()
+  const storedResponse = useAppSelector((s) => s.simulator.personalizationResponse)
+  const fetchedAt = useAppSelector((s) => s.simulator.lastPersonalizationFetchedAt)
   const [customerId, setCustomerId] = useState('')
-  const [lastResponse, setLastResponse] = useState<ProxyResponse | null>(null)
 
   const mutation = useMutation({
     mutationFn: async (): Promise<ProxyResponse> => {
@@ -54,26 +65,21 @@ export function PersonalizationPage() {
       return localStubResponse(id)
     },
     onSuccess: (res) => {
-      setLastResponse(res)
       dispatch(setSimulatedPersonalizationResponse(res))
       dispatch(setLastPersonalizationCustomerId(customerId.trim()))
-    },
-    onError: () => {
-      setLastResponse(null)
+      dispatch(setLastPersonalizationFetchedAt(new Date().toISOString()))
     },
   })
 
   const err = mutation.error
+  const showResponse = Boolean(fetchedAt && storedResponse)
 
   return (
     <div className="page">
       <h1>Personalization API</h1>
       <p className="lede">
-        Enter a <strong>customer_id</strong> and fetch. The server substitutes it into{' '}
-        <code>PERSONALIZATION_API_PATH_TEMPLATE</code> (must include{' '}
-        <code>{'{{customerId}}'}</code>), calls GrowthLoop with{' '}
-        <code>PERSONALIZATION_API_KEY</code> (never exposed to the browser), and shows the JSON
-        below.
+        Use the <strong>customer_id</strong> field below to fetch the corresponding data that has
+        been written to the GrowthLoop Personalization API.
       </p>
 
       {!useHttpProxy && (
@@ -103,7 +109,7 @@ export function PersonalizationPage() {
           disabled={mutation.isPending}
           onClick={() => mutation.mutate()}
         >
-          Fetch personalization
+          Call the Personalization API
         </button>
       </div>
 
@@ -116,10 +122,17 @@ export function PersonalizationPage() {
         </div>
       )}
 
-      {lastResponse && (
+      {showResponse && (
         <section className="personalization-response-section">
-          <h2 className="personalization-response-heading">Response</h2>
-          <pre className="result-block">{JSON.stringify(lastResponse, null, 2)}</pre>
+          <div className="personalization-response-head">
+            <h2 className="personalization-response-heading">Response</h2>
+            {fetchedAt && (
+              <span className="personalization-fetched-at muted small">
+                last fetched at {formatFetchedAt(fetchedAt)}
+              </span>
+            )}
+          </div>
+          <pre className="result-block">{JSON.stringify(storedResponse, null, 2)}</pre>
         </section>
       )}
     </div>

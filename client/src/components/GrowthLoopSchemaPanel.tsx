@@ -29,7 +29,7 @@ export function GrowthLoopSchemaPanel({ eventName, rootFields }: Props) {
     <details className="mock-event-collapsible">
       <summary className="mock-event-collapsible-summary">GrowthLoop Event Schema</summary>
       <p className="muted small mock-event-collapsible-hint">
-        Auto-generated from your mock fields. Paste into GrowthLoop when registering the event
+        Auto-generated from your fields. Paste into GrowthLoop when registering the event
         schema so payloads match this structure.
       </p>
       <div className="mock-event-collapsible-toolbar">

@@ -252,6 +252,19 @@ body {
   border-color: var(--danger) !important;
 }
 
+.stack-label-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+
+.event-name-duplicate-warning {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #f59e0b;
+}
+
 .content-source-fieldset {
   margin: 0 0 1rem;
   padding: 0.75rem 1rem;
@@ -374,6 +387,45 @@ body {
   cursor: not-allowed;
 }
 
+.btn[aria-disabled='true']:not(:disabled) {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.mock-event-collapsible.needs-attention {
+  border-color: color-mix(in srgb, var(--border) 45%, var(--danger) 55%);
+  background: color-mix(in srgb, var(--bg) 88%, var(--danger) 12%);
+}
+
+.payload-required-pill {
+  margin-left: 0.6rem;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--danger) 60%, var(--border) 40%);
+  color: color-mix(in srgb, var(--danger) 70%, var(--text) 30%);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  vertical-align: middle;
+  text-transform: uppercase;
+}
+
+.payload-required-hint {
+  margin: 0.5rem 0 0;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.875rem;
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--danger) 45%, var(--border) 55%);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  color: color-mix(in srgb, var(--danger) 70%, var(--text) 30%);
+}
+
+.payload-required-hint code {
+  background: transparent;
+  color: inherit;
+}
+
 .btn-secondary {
   background: transparent;
   border-color: var(--border);
@@ -411,6 +463,28 @@ body {
   background: rgba(74, 222, 128, 0.12);
   border: 1px solid rgba(74, 222, 128, 0.35);
   color: #bbf7d0;
+}
+
+.banner-warning {
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  color: #fde68a;
+}
+
+.schema-field-locked-hint {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.card-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
 }
 
 .card {
@@ -916,4 +990,20 @@ a {
   font-size: 1rem;
   font-weight: 600;
   color: var(--muted);
+}
+
+.personalization-response-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin-bottom: 0.25rem;
+}
+
+.personalization-response-head .personalization-response-heading {
+  margin: 0;
+}
+
+.personalization-fetched-at {
+  font-style: italic;
 }
