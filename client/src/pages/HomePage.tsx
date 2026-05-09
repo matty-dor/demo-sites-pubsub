@@ -30,6 +30,7 @@ import { buildDefaultPayload } from '../lib/schemaDefaults'
 import { PayloadEditor } from '../components/PayloadEditor'
 import { GrowthLoopSchemaPanel } from '../components/GrowthLoopSchemaPanel'
 import { getEventThemeStyle } from '../lib/eventTheme'
+import { useScopePaths } from '../scope/ScopeContext'
 
 type ApiMockEventRow = {
   id: string
@@ -42,6 +43,7 @@ export function HomePage() {
   const backend = backendStorageEnabled()
   const dispatch = useAppDispatch()
   const store = useStore()
+  const scopePaths = useScopePaths()
   const reduxEvents = useAppSelector((s) => s.mockEvents.events)
   const awaitingByEvent = useAppSelector((s) => s.experienceRefresh.awaitingRefreshByEventId)
   const payloadsById = useAppSelector((s) => s.eventPayloads.byEventId)
@@ -123,7 +125,7 @@ export function HomePage() {
       <div className="page">
         <div className="page-title-row">
           <h1>Events</h1>
-          <Link to="/mock-events/new" className="btn btn-primary page-title-action">
+          <Link to={scopePaths.eventsCreate} className="btn btn-primary page-title-action">
             Create New Event
           </Link>
         </div>
@@ -138,7 +140,7 @@ export function HomePage() {
     <div className="page">
       <div className="page-title-row">
         <h1>Events</h1>
-        <Link to="/mock-events/new" className="btn btn-primary page-title-action">
+        <Link to={scopePaths.eventsCreate} className="btn btn-primary page-title-action">
           Create New Event
         </Link>
       </div>
@@ -171,7 +173,7 @@ export function HomePage() {
                 </h2>
                 <div className="card-head-actions">
                   <Link
-                    to={`/mock-events/${ev.id}/edit`}
+                    to={scopePaths.eventsEdit(ev.id)}
                     className="btn btn-ghost"
                   >
                     Edit

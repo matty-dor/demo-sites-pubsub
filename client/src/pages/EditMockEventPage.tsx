@@ -24,6 +24,7 @@ import {
 import { alignPayloadToMockSchema } from '../lib/payloadAlign'
 import type { SchemaNode } from '../types/schema'
 import { SchemaEditor, appendNewSchemaField } from '../components/SchemaEditor'
+import { useScopePaths } from '../scope/ScopeContext'
 
 type ApiMockEventRow = {
   id: string
@@ -35,6 +36,7 @@ type ApiMockEventRow = {
 export function EditMockEventPage() {
   const { id = '' } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const scopePaths = useScopePaths()
   const backend = backendStorageEnabled()
   const dispatch = useAppDispatch()
 
@@ -88,7 +90,7 @@ export function EditMockEventPage() {
           payload: alignPayloadToMockSchema(schema, existingPayload),
         }),
       )
-      navigate('/')
+      navigate(scopePaths.events)
     },
     onError: (err: Error) => {
       const msg = err instanceof ApiError ? err.message : err.message
@@ -122,7 +124,7 @@ export function EditMockEventPage() {
         payload: alignPayloadToMockSchema(schema, existingPayload),
       }),
     )
-    navigate('/')
+    navigate(scopePaths.events)
   }
 
   const saveDisabled =
@@ -147,7 +149,7 @@ export function EditMockEventPage() {
       <div className="page">
         <h1>Edit event</h1>
         <div className="banner banner-error">
-          Event not found. <Link to="/">Back to Events</Link>
+          Event not found. <Link to={scopePaths.events}>Back to Events</Link>
         </div>
       </div>
     )
@@ -199,7 +201,7 @@ export function EditMockEventPage() {
       />
 
       <div className="actions-row">
-        <Link to="/" className="btn btn-ghost">
+        <Link to={scopePaths.events} className="btn btn-ghost">
           Cancel
         </Link>
         <button

@@ -41,6 +41,11 @@ function alignNode(node: SchemaNode, raw: unknown): unknown {
       return defaultValueForNode(node) as boolean
     }
 
+    case 'date': {
+      if (typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw
+      return defaultValueForNode(node) as string
+    }
+
     case 'object': {
       const obj =
         raw !== null && typeof raw === 'object' && !Array.isArray(raw)

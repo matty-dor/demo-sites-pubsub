@@ -4,6 +4,7 @@ export const fieldTypeSchema = z.enum([
   'string',
   'number',
   'boolean',
+  'date',
   'object',
   'array',
 ]);

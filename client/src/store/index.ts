@@ -1,50 +1,9 @@
-import { combineReducers, configureStore } from '@reduxjs/toolkit'
-import {
-  persistReducer,
-  persistStore,
-  FLUSH,
-  REHYDRATE,
-  PAUSE,
-  PERSIST,
-  PURGE,
-  REGISTER,
-} from 'redux-persist'
-import { persistStorage } from './persistStorage'
-import { mockEventsSlice } from './mockEventsSlice'
-import { eventDynamicRulesSlice } from './eventDynamicRulesSlice'
-import { simulatorSlice } from './simulatorSlice'
-import { brandingSlice } from './brandingSlice'
-import { experienceRefreshSlice } from './experienceRefreshSlice'
-import { eventPayloadsSlice } from './eventPayloadsSlice'
+import { createScopedAppStore } from './createScopedStore'
 
-const rootReducer = combineReducers({
-  mockEvents: mockEventsSlice.reducer,
-  eventDynamicRules: eventDynamicRulesSlice.reducer,
-  simulator: simulatorSlice.reducer,
-  branding: brandingSlice.reducer,
-  experienceRefresh: experienceRefreshSlice.reducer,
-  eventPayloads: eventPayloadsSlice.reducer,
-})
+const v1 = createScopedAppStore('growthloop-poc')
 
-const persistConfig = {
-  key: 'growthloop-poc',
-  storage: persistStorage,
-  whitelist: ['mockEvents', 'eventDynamicRules', 'simulator', 'branding', 'eventPayloads'],
-}
-
-const persistedReducer = persistReducer(persistConfig, rootReducer)
-
-export const store = configureStore({
-  reducer: persistedReducer,
-  middleware: (getDefaultMiddleware) =>
-    getDefaultMiddleware({
-      serializableCheck: {
-        ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
-      },
-    }),
-})
-
-export const persistor = persistStore(store)
+export const store = v1.store
+export const persistor = v1.persistor
 
 export type RootState = ReturnType<typeof store.getState>
 export type AppDispatch = typeof store.dispatch

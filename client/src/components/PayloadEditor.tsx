@@ -103,6 +103,35 @@ function PayloadField({
           true
         </label>
       )
+    case 'date':
+      return (
+        <input
+          className="input"
+          type="date"
+          value={typeof value === 'string' ? value : ''}
+          onChange={(e) => onChange(e.target.value)}
+          onClick={(e) => {
+            const el = e.currentTarget as HTMLInputElement & {
+              showPicker?: () => void
+            }
+            try {
+              el.showPicker?.()
+            } catch {
+              /* showPicker not supported or blocked; native click target still opens it */
+            }
+          }}
+          onFocus={(e) => {
+            const el = e.currentTarget as HTMLInputElement & {
+              showPicker?: () => void
+            }
+            try {
+              el.showPicker?.()
+            } catch {
+              /* showPicker not supported or blocked from this focus event */
+            }
+          }}
+        />
+      )
     case 'object': {
       const obj =
         value !== null && typeof value === 'object' && !Array.isArray(value)

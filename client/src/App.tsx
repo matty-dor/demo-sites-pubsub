@@ -5,6 +5,7 @@ import { CreateMockEventPage } from './pages/CreateMockEventPage'
 import { EditMockEventPage } from './pages/EditMockEventPage'
 import { PersonalizationPage } from './pages/PersonalizationPage'
 import { MockContentPage } from './pages/MockContentPage'
+import { V2ScopeLayout } from './scope/V2ScopeLayout'
 
 export default function App() {
   return (
@@ -16,6 +17,14 @@ export default function App() {
           <Route path="/mock-events/new" element={<CreateMockEventPage />} />
           <Route path="/mock-events/:id/edit" element={<EditMockEventPage />} />
           <Route path="/mock-content" element={<MockContentPage />} />
+
+          <Route element={<V2ScopeLayout />}>
+            <Route path="/v2" element={<HomePage />} />
+            <Route path="/v2/events/new" element={<CreateMockEventPage />} />
+            <Route path="/v2/events/:id/edit" element={<EditMockEventPage />} />
+            <Route path="/v2/content" element={<MockContentPage />} />
+          </Route>
+
           <Route path="/personalization" element={<PersonalizationPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

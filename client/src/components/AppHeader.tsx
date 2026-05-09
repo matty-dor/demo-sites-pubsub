@@ -42,6 +42,12 @@ export function AppHeader() {
         <NavLink to="/mock-content" className={navLinkClass}>
           Experiences
         </NavLink>
+        <NavLink to="/v2" end className={navLinkClass}>
+          Events v2
+        </NavLink>
+        <NavLink to="/v2/content" className={navLinkClass}>
+          Experiences v2
+        </NavLink>
         <NavLink to="/personalization" className={navLinkClass}>
           Personalization API
         </NavLink>

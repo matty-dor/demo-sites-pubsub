@@ -9,6 +9,8 @@ export function defaultValueForNode(node: SchemaNode): unknown {
       return 0
     case 'boolean':
       return false
+    case 'date':
+      return ''
     case 'object': {
       const o: Record<string, unknown> = {}
       for (const f of node.fields ?? []) {

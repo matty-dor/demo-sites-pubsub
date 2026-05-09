@@ -1099,3 +1099,525 @@ a {
 .personalization-fetched-at {
   font-style: italic;
 }
+
+/* Page Structure editor (Events v2) */
+.page-structure-editor {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+.page-structure-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.page-structure-controls-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.page-structure-row-editor {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.75rem;
+  background: var(--surface);
+}
+
+.page-structure-row-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.4rem;
+}
+
+.page-structure-row-label {
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.page-structure-layout-row {
+  margin: 0;
+}
+
+.page-structure-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.25rem;
+}
+
+.page-structure-save-flash {
+  font-style: italic;
+}
+
+.page-structure-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  min-height: 120px;
+}
+
+.page-structure-preview-row {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.page-structure-preview-row-full {
+  grid-template-columns: 1fr;
+}
+
+.page-structure-preview-row-half-half {
+  grid-template-columns: 1fr 1fr;
+}
+
+.page-structure-preview-block {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 1rem;
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 720px) {
+  .page-structure-editor {
+    grid-template-columns: 1fr;
+  }
+
+  .page-structure-preview-row-half-half {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Static Content editor (Events v2) */
+.static-content-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.static-content-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.static-content-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+.static-content-editor.inputs-collapsed .static-content-grid {
+  grid-template-columns: 1fr;
+}
+
+.static-content-editor.inputs-collapsed .static-content-controls {
+  display: none;
+}
+
+.static-content-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.static-content-row-editor {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.75rem;
+  background: var(--surface);
+}
+
+.static-content-row-head {
+  cursor: pointer;
+  list-style-position: outside;
+  user-select: none;
+}
+
+.static-content-row-head::marker {
+  color: var(--muted);
+}
+
+.static-content-row-editor[open] > .static-content-row-head {
+  margin-bottom: 0.5rem;
+}
+
+.static-content-block-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.static-content-block-grid-full {
+  grid-template-columns: 1fr;
+}
+
+.static-content-block-grid-half-half {
+  grid-template-columns: 1fr 1fr;
+}
+
+.static-content-block-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.static-content-block-label {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+
+.static-content-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.25rem;
+}
+
+.static-content-save-flash {
+  font-style: italic;
+}
+
+.static-content-invalid-hint {
+  margin: 0;
+  color: var(--danger);
+}
+
+.static-content-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  min-height: 120px;
+}
+
+.static-content-preview-block {
+  text-align: center;
+  word-break: break-word;
+  white-space: pre-wrap;
+  padding: 0.75rem;
+}
+
+.static-content-preview-text {
+  display: inline-block;
+  text-align: left;
+  white-space: pre-wrap;
+}
+
+.static-content-preview-image {
+  max-width: 100%;
+  max-height: 160px;
+  object-fit: contain;
+  border-radius: var(--radius);
+}
+
+@media (max-width: 720px) {
+  .static-content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .static-content-block-grid-half-half {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Dynamic Content editor (Events v2) — mirrors Static Content layout. */
+.dynamic-targets-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.dynamic-targets-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.dynamic-targets-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+.dynamic-targets-editor.inputs-collapsed .dynamic-targets-grid {
+  grid-template-columns: 1fr;
+}
+
+.dynamic-targets-editor.inputs-collapsed .dynamic-targets-controls {
+  display: none;
+}
+
+.dynamic-targets-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.dynamic-target-editor {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.75rem;
+  background: var(--surface);
+}
+
+.dynamic-target-head {
+  cursor: pointer;
+  list-style-position: outside;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.dynamic-target-head::marker {
+  color: var(--muted);
+}
+
+.dynamic-target-editor[open] > .dynamic-target-head {
+  margin-bottom: 0.5rem;
+}
+
+.dynamic-target-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.dynamic-target-mapping-grid {
+  grid-template-columns: minmax(9rem, 11rem) 1fr minmax(9rem, 12rem);
+}
+
+.dynamic-target-content-cell {
+  grid-column: 1 / -1;
+}
+
+.dynamic-target-add-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: end;
+  padding: 0.5rem 0.75rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
+.dynamic-target-add-select {
+  flex: 1 1 14rem;
+  min-width: 12rem;
+}
+
+.dynamic-targets-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.25rem;
+}
+
+.dynamic-targets-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  min-height: 120px;
+}
+
+.dynamic-targets-preview-block {
+  position: relative;
+}
+
+.dynamic-targets-preview-badge {
+  position: absolute;
+  top: 0.25rem;
+  right: 0.25rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: var(--accent, #4f46e5);
+  color: #fff;
+  pointer-events: none;
+}
+
+.dynamic-targets-flexible-placeholder {
+  padding: 0.75rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
+@media (max-width: 720px) {
+  .dynamic-targets-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Experiences v2 — collapsible per-event card with full-width preview. */
+.mock-experience-v2-grid {
+  gap: 1rem;
+}
+
+.card.mock-experience-v2-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.card.mock-experience-v2-card > .mock-experience-v2-summary {
+  cursor: pointer;
+  user-select: none;
+  padding: 1rem 1.15rem;
+  list-style: none;
+  font-weight: 600;
+}
+
+.card.mock-experience-v2-card > .mock-experience-v2-summary::-webkit-details-marker {
+  display: none;
+}
+
+.card.mock-experience-v2-card[open] > .mock-experience-v2-summary {
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--border) 70%, var(--event-accent) 30%);
+}
+
+.mock-experience-v2-summary-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.mock-experience-v2-disclosure {
+  width: 0;
+  height: 0;
+  border-top: 0.35rem solid transparent;
+  border-bottom: 0.35rem solid transparent;
+  border-left: 0.5rem solid var(--muted);
+  flex: 0 0 auto;
+  transform-origin: 35% 50%;
+  transition: transform 120ms ease;
+}
+
+.card.mock-experience-v2-card[open] .mock-experience-v2-disclosure {
+  transform: rotate(90deg);
+}
+
+.mock-experience-v2-summary-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+  margin-right: auto;
+}
+
+.mock-experience-v2-summary-trigger {
+  flex-shrink: 0;
+}
+
+.mock-experience-v2-body {
+  padding: 1rem 1.15rem 1.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.mock-experience-v2-body-trigger {
+  margin: 0;
+}
+
+.mock-experience-v2-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.mock-experience-v2-live-region .mock-experience-refresh-row {
+  margin-bottom: 0.75rem;
+}
+
+.mock-experience-v2-row {
+  width: 100%;
+}
+
+.mock-experience-v2-cell {
+  position: relative;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1.25rem;
+  min-height: 96px;
+  text-align: center;
+}
+
+.mock-experience-v2-cell-text {
+  display: inline-block;
+  text-align: left;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.mock-experience-v2-cell-image {
+  max-width: 100%;
+  max-height: 220px;
+  object-fit: contain;
+  border-radius: var(--radius);
+}
+
+.mock-experience-v2-cell-source {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.mock-experience-v2-cell-source-default {
+  background: color-mix(in srgb, var(--muted) 25%, transparent);
+  color: var(--muted);
+}
+
+.mock-experience-v2-cell-source-matched {
+  background: var(--event-accent, var(--accent));
+  color: #0b1020;
+}
+
+.mock-experience-v2-live-region {
+  margin-top: 0;
+}

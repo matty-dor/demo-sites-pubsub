@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useScopePaths } from '../scope/ScopeContext'
+import { DynamicContentV2Section } from './DynamicContentV2Section'
+import { PageStructureEditor } from './PageStructureEditor'
+import { StaticContentEditor } from './StaticContentEditor'
 import {
   fieldPathSuffixFromStored,
   normalizeRulesFieldPath,
@@ -46,6 +50,7 @@ function emptyDynamicRow(): MappingRow {
 
 export function DynamicContentRulesSection({ eventId, eventName }: Props) {
   const dispatch = useAppDispatch()
+  const { scopeId } = useScopePaths()
   const stored = useAppSelector((s) => s.eventDynamicRules.byEventId[eventId])
   const simData = useAppSelector((s) => s.simulator.personalizationResponse?.data)
   const personalizationResponse = useAppSelector(
@@ -196,10 +201,8 @@ export function DynamicContentRulesSection({ eventId, eventName }: Props) {
   const radioHelp =
     'Will your content contain the value from your event payload (dynamic), or will the content be hardcoded (static)? For example, if an event payload contained "cart_subtotal," and you want that value to appear in text like “You have {{cart_subtotal}} in your cart!”, that would be dynamic. If you want something like “You\'ve qualified for free shipping!”, that would be static.'
 
-  return (
-    <details className="mock-event-collapsible">
-      <summary className="mock-event-collapsible-summary">Dynamic Content Rules</summary>
-      <div className="mock-event-collapsible-inner dynamic-rules-inner">
+  const innerBody = (
+    <div className="mock-event-collapsible-inner dynamic-rules-inner">
         <p className="muted small dynamic-rules-lede">
           The content variations you set below will be visible on the Experiences page. When you
           trigger the event, a corresponding GrowthLoop Journey will be initiated. The Journey will
@@ -590,7 +593,39 @@ export function DynamicContentRulesSection({ eventId, eventName }: Props) {
             )}
           </div>
         </div>
-      </div>
+    </div>
+  )
+
+  if (scopeId === 'v2') {
+    return (
+      <details className="mock-event-collapsible">
+        <summary className="mock-event-collapsible-summary">Content</summary>
+        <div className="mock-event-collapsible-inner v2-content-inner">
+          <details className="mock-event-collapsible">
+            <summary className="mock-event-collapsible-summary">Page Structure</summary>
+            <div className="mock-event-collapsible-inner">
+              <PageStructureEditor eventId={eventId} />
+            </div>
+          </details>
+          <details className="mock-event-collapsible">
+            <summary className="mock-event-collapsible-summary">Static Content</summary>
+            <div className="mock-event-collapsible-inner">
+              <StaticContentEditor eventId={eventId} />
+            </div>
+          </details>
+          <details className="mock-event-collapsible">
+            <summary className="mock-event-collapsible-summary">Dynamic Content</summary>
+            <DynamicContentV2Section eventId={eventId} />
+          </details>
+        </div>
+      </details>
+    )
+  }
+
+  return (
+    <details className="mock-event-collapsible">
+      <summary className="mock-event-collapsible-summary">Dynamic Content Rules</summary>
+      {innerBody}
     </details>
   )
 }

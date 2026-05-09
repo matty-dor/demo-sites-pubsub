@@ -22,9 +22,11 @@ import {
 } from '../hooks/useExistingEventNames'
 import type { SchemaNode } from '../types/schema'
 import { SchemaEditor, appendNewSchemaField } from '../components/SchemaEditor'
+import { useScopePaths } from '../scope/ScopeContext'
 
 export function CreateMockEventPage() {
   const navigate = useNavigate()
+  const scopePaths = useScopePaths()
   const backend = backendStorageEnabled()
   const dispatch = useAppDispatch()
   const [name, setName] = useState('')
@@ -40,7 +42,7 @@ export function CreateMockEventPage() {
         body: JSON.stringify({ name: name.trim(), schema }),
       }),
     onSuccess: () => {
-      navigate('/')
+      navigate(scopePaths.events)
     },
     onError: (err: Error) => {
       const msg = err instanceof ApiError ? err.message : err.message
@@ -68,7 +70,7 @@ export function CreateMockEventPage() {
       return
     }
     dispatch(addMockEvent({ name: name.trim(), schema }))
-    navigate('/')
+    navigate(scopePaths.events)
   }
 
   const saveDisabled =

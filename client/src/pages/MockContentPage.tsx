@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/http'
 import { MockExperienceLiveRegion } from '../components/MockExperienceLiveRegion'
 import { MockExperienceRulesDefault } from '../components/MockExperienceRulesDefault'
+import { MockExperienceV2Card } from '../components/MockExperienceV2Card'
 import { backendStorageEnabled } from '../config/storageMode'
 import { useMockEventPublish } from '../hooks/useMockEventPublish'
 import { withEventTypeFirst } from '../lib/eventTypePayload'
@@ -13,6 +14,7 @@ import { ensureDefaultPayloadForEvent } from '../store/eventPayloadsSlice'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
 import { getEventThemeStyle } from '../lib/eventTheme'
 import { panelTitleSuffixFromSaved } from '../lib/panelTitle'
+import { useScopePaths } from '../scope/ScopeContext'
 import type { SchemaNode } from '../types/schema'
 
 type ApiMockEventRow = {
@@ -25,8 +27,20 @@ type ApiMockEventRow = {
 export function MockContentPage() {
   const backend = backendStorageEnabled()
   const dispatch = useAppDispatch()
+  const scopePaths = useScopePaths()
+  const isV2 = scopePaths.scopeId === 'v2'
+
   const reduxEvents = useAppSelector((s) => s.mockEvents.events)
   const rulesByEventId = useAppSelector((s) => s.eventDynamicRules.byEventId)
+  const pageStructureByEventId = useAppSelector(
+    (s) => s.pageStructure.byEventId,
+  )
+  const staticContentByEventId = useAppSelector(
+    (s) => s.staticContent.byEventId,
+  )
+  const dynamicTargetsByEventId = useAppSelector(
+    (s) => s.eventDynamicTargets.byEventId,
+  )
   const payloadsById = useAppSelector((s) => s.eventPayloads.byEventId)
 
   const { data, isLoading, error } = useQuery({
@@ -50,10 +64,28 @@ export function MockContentPage() {
     }))
   }, [backend, data?.events, reduxEvents])
 
-  const experienceEvents = useMemo(
-    () => events.filter((ev) => rulesByEventId[ev.id] != null),
-    [events, rulesByEventId],
-  )
+  // v1 experiences appear when an event has saved Dynamic Content Rules.
+  // v2 experiences appear as soon as the event has saved any of: Page Structure,
+  // Static Content, or Dynamic Targets — the card just renders whatever pieces
+  // are present (cells without structure/content fall back to placeholders).
+  const experienceEvents = useMemo(() => {
+    if (isV2) {
+      return events.filter(
+        (ev) =>
+          pageStructureByEventId[ev.id] != null ||
+          staticContentByEventId[ev.id] != null ||
+          dynamicTargetsByEventId[ev.id] != null,
+      )
+    }
+    return events.filter((ev) => rulesByEventId[ev.id] != null)
+  }, [
+    isV2,
+    events,
+    rulesByEventId,
+    pageStructureByEventId,
+    staticContentByEventId,
+    dynamicTargetsByEventId,
+  ])
 
   const { triggerPublish, publishStatus, publishPending } = useMockEventPublish()
 
@@ -69,17 +101,28 @@ export function MockContentPage() {
     }
   }, [dispatch, experienceEvents])
 
-  const emptyHint = useMemo(
-    () =>
-      (!backend || !isLoading) && experienceEvents.length === 0 ? (
+  const emptyHint = useMemo(() => {
+    if (backend && isLoading) return null
+    if (experienceEvents.length > 0) return null
+    if (isV2) {
+      return (
         <p className="muted">
-          No experiences yet. Open <Link to="/">Events</Link>, add{' '}
-          <strong>Dynamic Content Rules</strong> to an event, and click{' '}
-          <strong>Save rules</strong>. Saved rules appear here with a trigger and default content.
+          No experiences yet. Open <Link to={scopePaths.events}>Events</Link>{' '}
+          and save a <strong>Page Structure</strong>,{' '}
+          <strong>Static Content</strong>, or <strong>Dynamic Content</strong>{' '}
+          on an event — the experience appears here as soon as any of those is
+          saved.
         </p>
-      ) : null,
-    [backend, isLoading, experienceEvents.length],
-  )
+      )
+    }
+    return (
+      <p className="muted">
+        No experiences yet. Open <Link to={scopePaths.events}>Events</Link>, add{' '}
+        <strong>Dynamic Content Rules</strong> to an event, and click{' '}
+        <strong>Save rules</strong>. Saved rules appear here with a trigger and default content.
+      </p>
+    )
+  }, [backend, isLoading, experienceEvents.length, isV2, scopePaths.events])
 
   if (backend && error) {
     return (
@@ -87,6 +130,36 @@ export function MockContentPage() {
         <h1>Experiences</h1>
         <div className="banner banner-error">
           Could not load events. Is the API running and configured? {(error as Error).message}
+        </div>
+      </div>
+    )
+  }
+
+  if (isV2) {
+    return (
+      <div className="page">
+        <h1>Experiences</h1>
+        <p className="lede">
+          Each card mirrors an event that has a saved Page Structure with
+          Static or Dynamic content. Trigger the event from the card, then{' '}
+          <strong>Refresh Experience</strong> to load the Personalization API
+          and resolve any dynamic targets per cell — defaulting back to your
+          saved Static Content where no dynamic match applies.
+        </p>
+        {emptyHint}
+        {backend && isLoading && <p className="muted">Loading…</p>}
+        <div className="event-grid mock-experience-v2-grid">
+          {experienceEvents.map((ev) => (
+            <MockExperienceV2Card
+              key={ev.id}
+              eventId={ev.id}
+              eventName={ev.name}
+              eventSchema={ev.schema ?? []}
+              rows={pageStructureByEventId[ev.id]?.rows ?? []}
+              staticContent={staticContentByEventId[ev.id]}
+              dynamicConfig={dynamicTargetsByEventId[ev.id]}
+            />
+          ))}
         </div>
       </div>
     )

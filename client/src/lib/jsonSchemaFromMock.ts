@@ -15,6 +15,8 @@ export function fieldNodeToJsonSchema(node: SchemaNode): JsonSchemaFragment {
       return { type: 'number' }
     case 'boolean':
       return { type: 'boolean' }
+    case 'date':
+      return { type: 'string', format: 'date' }
     case 'object': {
       const properties: Record<string, JsonSchemaFragment> = {}
       for (const f of node.fields ?? []) {
