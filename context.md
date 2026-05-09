@@ -74,7 +74,19 @@ A **GrowthLoop-style PoC demo**: mock events (schemas + payloads), optional publ
 
 ### Per-event visual accent (Events + Experiences)
 
-- Cards sharing the same **`eventId`** use the same subtle border wash and **themed primary/secondary buttons** inside the card, picked by hashing the id into a fixed palette (`eventTheme.ts`, `getEventThemeStyle`, `.mock-event-card` / `.mock-experience-card` in `index.css`).
+- Cards sharing the same **`eventId`** use the same subtle border wash and **themed primary/secondary buttons** inside the card, picked by hashing the id into a fixed palette (`eventTheme.ts`, `getEventThemeStyle`, `.mock-event-card` / `.mock-experience-card` / `.mock-experience-v2-card` in `index.css`).
+
+### Events v2 / Experiences v2 (sandbox tracks)
+
+- **Why two tracks:** `Events v2` / `Experiences v2` are header tabs that share the same components as v1 but live in a **completely isolated Redux store** so users can experiment without disturbing v1 demo data.
+- **Scope plumbing (`client/src/scope/`):** `ScopeContext.tsx` exposes a `ScopePaths` value (`scopeId`, `events`, `eventsCreate`, `eventsEdit`, `experiences`); `V1_SCOPE_PATHS` (`/`, `/mock-events/...`, `/mock-content`) vs `V2_SCOPE_PATHS` (`/v2`, `/v2/events/...`, `/v2/content`). `useScopePaths()` is consumed by `HomePage`, `MockContentPage`, `CreateMockEventPage`, and `EditMockEventPage` so all internal links are scope-aware.
+- **Store factory (`client/src/store/createScopedStore.ts`):** `createScopedAppStore(persistKey)` builds a Redux store + persistor for a unique localStorage key. v1 uses `'growthloop-poc'` (`store/index.ts`); v2 uses `'growthloop-poc-v2'` (`store/v2Store.ts`). The whitelist now includes `pageStructure`, `staticContent`, and `eventDynamicTargets` alongside the original slices.
+- **Layout wrapper (`client/src/scope/V2ScopeLayout.tsx`):** wraps every `/v2/*` route with its own `<Provider store={v2Store}>`, `<PersistGate persistor={v2Persistor}>`, fresh `QueryClient`, and `<ScopePathsProvider value={V2_SCOPE_PATHS}>` so v2 has truly separate data, query cache, and routing semantics.
+- **"Content" wrapper on Events v2:** `DynamicContentRulesSection` renders one v1 `<details>` (existing form) when `scopeId === 'v1'`. When `scopeId === 'v2'`, it renders a `Content` `<details>` containing three nested collapsibles: **Page Structure** (`PageStructureEditor`), **Static Content** (`StaticContentEditor`), and **Dynamic Content** (`DynamicContentV2Section`). The legacy v1 inner body is no longer rendered for v2.
+- **Page Structure (`pageStructureSlice` + `PageStructureEditor`):** rows are `{ id, layout: 'full' | 'half-half' }`. Editor uses a 1fr/2fr grid — left controls (Edit / Save / Cancel + per-row layout radios + Add Another Row + Remove) and right preview (a stack of `page-structure-preview-row-*` blocks). Saved row order drives both Static Content and Dynamic Content cell layouts downstream.
+- **Static Content (`staticContentSlice` + `StaticContentEditor`):** per-row blocks (`byRowId[rowId]: StaticBlockContent[]`, length 1 for full, 2 for half-half). Editor mirrors the 2fr/1fr grid of the Dynamic editor with a **Collapse inputs** toggle that gives the preview full width. Each row is its own `<details>` (open by default, opens automatically when Page Structure adds new rows). Block Content Type is `text` or `imageUrl`; URL inputs validate via `isValidHttpUrl` and show an inline `static-content-invalid-hint`.
+- **Dynamic Content v2 (`eventDynamicTargetsSlice` + `DynamicContentV2Section`):** per-event `V2DynamicConfig { contentSourceMode: 'static' | 'flexible', fieldPath, targets: V2DynamicTarget[] }`. Each `V2DynamicTarget` binds a list of mappings (`operator`, `value`, `contentType`, `content`) to a specific `(rowId, side)` page-structure cell — `side: null` for full-width rows, `'A' | 'B'` for 50-50. The radio still says **Static / Flexible** (renamed from `Dynamic`); Flexible mode currently renders a coming-soon placeholder for future event-payload string interpolation (e.g. `{{cart_subtotal}}`). Field path is shared per event. The "+ Add target" picker only lists unoccupied slots; each existing target is its own collapsible card with per-mapping Remove and **Content** spanning full width below `Operator / Example value / Content Type` (scoped via `dynamic-target-mapping-grid` + `dynamic-target-content-cell`). The right-side preview is a page-structure-aware grid: dynamic match → static fallback → empty placeholder, with a `Dynamic` badge per cell that has a target configured.
+- **Experiences v2 (`MockExperienceV2Card` + `MockExperienceV2LiveRegion`):** `MockContentPage` branches on `scopeId`. v2 lists each event that has saved **any** of pageStructure / staticContent / eventDynamicTargets. Each card is a `<details class="card mock-experience-card mock-experience-v2-card">` styled with `getEventThemeStyle(eventId)` so it shares accent and button colors with the matching Events v2 card. The summary uses a custom CSS-drawn triangle (`.mock-experience-v2-disclosure`) that rotates 90° via `.mock-experience-v2-card[open] .mock-experience-v2-disclosure` (the native marker is suppressed because the inner row is `display: flex`). The summary contains the only **Trigger {event} Event** button — it calls `e.preventDefault()` + `e.stopPropagation()` so it doesn't toggle the card. The body renders the `MockExperienceV2LiveRegion`: full-width page-structure stage where each cell uses `resolveV2Cell` (target mappings → static block → empty placeholder, `forceDefault` for the default view) and shows a muted **Default** pill or accent **Dynamic match** pill. **Refresh Experience** + **Reset to Default Experience** sit immediately under the "Publish succeeded" paragraph (so they're visible without scrolling) with `margin-bottom` so they don't visually touch the preview outline below them.
 
 ### Personalization API page (`client/src/pages/PersonalizationPage.tsx`)
 
@@ -105,7 +117,7 @@ Supabase, personalization proxy, optional **KafkaJS** brokers (optional if only 
 
 ## Persistence
 
-Redux persist whitelist includes `mockEvents`, **`eventPayloads`**, `eventDynamicRules`, `simulator` (now also storing **`lastPersonalizationFetchedAt`**), `branding` — **not** `experienceRefresh` (session-only). **Reset demo data** (`DemoResetButton`) clears **`eventPayloads`** along with events and rules (local-only flow).
+Redux persist whitelist includes `mockEvents`, **`eventPayloads`**, `eventDynamicRules`, `simulator` (now also storing **`lastPersonalizationFetchedAt`**), `branding`, and the v2-specific slices **`pageStructure`**, **`staticContent`**, **`eventDynamicTargets`** — **not** `experienceRefresh` (session-only). v1 persists under the `'growthloop-poc'` localStorage key, v2 under `'growthloop-poc-v2'` (`createScopedAppStore`). **Reset demo data** (`DemoResetButton`) clears v1 events / payloads / rules (the button is rendered against the v1 store; v2 has its own isolated state that survives until the user clears `localStorage` directly).
 
 ## Recent interaction summary
 
@@ -146,6 +158,46 @@ Redux persist whitelist includes `mockEvents`, **`eventPayloads`**, `eventDynami
    - Button: **Call the Personalization API**.
    - Response + timestamp persisted in `simulator` slice (new **`lastPersonalizationFetchedAt`** field + `setLastPersonalizationFetchedAt` action). Response section gated on the timestamp; on error, the previous response and timestamp remain so the user has a cue the data is stale. Heading row shows `Response` next to muted italic **`last fetched at <medium date, short time>`** (`personalization-response-head`, `personalization-fetched-at`).
 
+### May 8–9, 2026 session
+
+1. **Dynamic Content Rules polish (v1 + carry-over to v2 chrome):**
+   - Field path input now uses a **placeholder** ("Refer to a Personalization API response to insert the proper field path.") instead of seeding a default `segment` value; stored paths still normalize through `normalizeRulesFieldPath`.
+   - Removed the "Matches the Personalization response shape" hint span and the "Saved as …" suffix span.
+   - Renamed the `API Response Value and Corresponding Content` `<h3>` to **`Content Variations`**; **Default Content** moved directly under the `<h3>`; each static-mapping row is wrapped in a `content-variation-block` titled **`Content Variation N`** with its own **Remove** button (`btn-secondary btn-small`).
+   - **Default Content** inputs render side-by-side (Content Type + Content) so they mirror the variation row layout; Content Type / Content cells span the full available width via the new `default-content-row` grid.
+   - Field path peek toggle ("Display the most recent Personalization API response") shows the latest `personalizationResponse` JSON inline; when none exists, links to the Personalization API page.
+   - Default radio for Content source switched to **Static**; explainer paragraph rewritten with the `cart_subtotal` / free-shipping example.
+
+2. **Schema editor `date` type:**
+   - New `'date'` `FieldType` plumbed through `client/src/types/schema.ts`, `SchemaEditor` (FieldTypeSelect option), `PayloadEditor` (`<input type="date">` that calls `showPicker()` on click + focus so the calendar opens from anywhere in the field), `schemaDefaults` (`''`), `payloadAlign` (`YYYY-MM-DD` validation/coercion), `payloadCompleteness`, and `jsonSchemaFromMock` (emits `{ type: 'string', format: 'date' }`). Server `mockEventSchema` enum updated to match.
+
+3. **`Events v2` / `Experiences v2` sandbox tracks (full track isolation):**
+   - New header tabs added to `AppHeader` (no asterisk on `Experiences v2`).
+   - `client/src/store/createScopedStore.ts` exports `createScopedAppStore(persistKey)` — combines all slices once and returns a fresh store + persistor under the given localStorage key. `client/src/store/index.ts` rewires v1 to `createScopedAppStore('growthloop-poc')`; new `client/src/store/v2Store.ts` instantiates the v2 copy under `'growthloop-poc-v2'`.
+   - New `client/src/scope/ScopeContext.tsx` exposes `ScopePaths` + `useScopePaths()`; `client/src/scope/V2ScopeLayout.tsx` wraps every `/v2/*` route with its own Redux Provider, PersistGate, React Query client, and `ScopePathsProvider` value. `App.tsx` registers the v2 routes (`/v2`, `/v2/events/new`, `/v2/events/:id/edit`, `/v2/content`) under that layout.
+   - Hardcoded paths inside `HomePage`, `MockContentPage`, `CreateMockEventPage`, and `EditMockEventPage` were replaced with `useScopePaths()` lookups so the same components serve both tracks.
+
+4. **Events v2 → "Content" wrapper section:**
+   - `DynamicContentRulesSection` now branches on `scopeId`. v1 keeps its single `Dynamic Content Rules` `<details>` with the existing inner body. v2 wraps everything in a top-level `Content` `<details>` whose inner body is three nested collapsibles: **Page Structure**, **Static Content**, **Dynamic Content**.
+   - `Page Structure` (`pageStructureSlice`, `PageStructureEditor`): 1fr/2fr grid. Left = Edit / Save / Cancel + per-row layout radios (`Full-Width` / `50-50`) + Add Another Row + Remove. Right = preview blocks via `page-structure-preview-row-*`.
+   - `Static Content` (`staticContentSlice`, `StaticContentEditor`): 2fr/1fr grid with a `Collapse inputs` toggle (`inputs-collapsed` modifier expands the preview to full width). Each Page Structure row is its own `<details>` (open by default, opens automatically when Page Structure adds rows). Block Content Type is `text` or `imageUrl`; URL validity drives `static-content-invalid-hint`.
+
+5. **Dynamic Content v2 overhaul (`eventDynamicTargetsSlice`, `DynamicContentV2Section`):**
+   - New slice stores per-event `V2DynamicConfig { contentSourceMode: 'static' | 'flexible', fieldPath, targets: V2DynamicTarget[] }` keyed by `eventId`. Each `V2DynamicTarget` binds to a `(rowId, side)` page-structure cell (`side: null` for full-width, `'A' | 'B'` for 50-50) and owns its own list of `V2StaticMappingRow` (`operator`, `value`, `contentType`, `content`).
+   - The Static / **Flexible** radio survives (Dynamic was renamed to Flexible to make room for future event-payload string interpolation, e.g. `{{cart_subtotal}}`); Flexible currently renders a coming-soon placeholder.
+   - The field path is shared per event (one `data.…` path drives every target's matching).
+   - Layout mirrors Static Content: 2fr/1fr grid with `Collapse inputs`. Left side lists each target as its own `<details>` with a **Remove target** button on the summary; inside, mappings are titled **Content Variation N** with their own **Remove**, plus an **Add mapping** button. The mapping row uses a scoped grid (`dynamic-target-mapping-grid`) so `Operator / Example value / Content Type` sit on row 1 and **Content** spans the full width on row 2 (`dynamic-target-content-cell`) — keeps the input out of the preview column.
+   - **+ Add target** dropdown only lists unoccupied `(rowId, side)` slots. Adding a target generates a uuid + an empty mapping; targets are reconciled on hydrate and whenever Page Structure changes (orphans dropped).
+   - **Save Dynamic Content** validates the field path is non-empty (regardless of mode) and rejects mappings with an Image URL Content Type whose `content` is not valid http(s).
+   - Right preview renders the page structure as a grid of cells. For each cell: try the target's mappings (`mappingRowMatches`) → fall back to the matching Static Content block → fall back to an empty placeholder. Cells with a configured target get a small `Dynamic` accent badge.
+
+6. **Experiences v2 page (`MockContentPage` v2 branch + `MockExperienceV2Card` + `MockExperienceV2LiveRegion`):**
+   - `MockContentPage` branches on `scopeId`. v2 lists each event that has saved **any** of pageStructure / staticContent / eventDynamicTargets (the gate was loosened so an experience appears as soon as any one piece is configured).
+   - `MockExperienceV2Card` is a single `<details class="card mock-experience-card mock-experience-v2-card">` themed via `getEventThemeStyle(eventId)` so its accent matches the matching Events v2 card. The card is `padding: 0` and lets the summary + body manage their own spacing.
+   - The summary contains a custom CSS-drawn disclosure triangle (`.mock-experience-v2-disclosure`, hidden native marker via `list-style: none` + `::-webkit-details-marker { display: none }`) that rotates 90° when `[open]`. The **Trigger {event} Event** button lives **only** in the summary (a duplicate body button was removed); its click handler calls `e.preventDefault()` + `e.stopPropagation()` so it doesn't toggle the `<details>`.
+   - `MockExperienceV2LiveRegion` mirrors the v1 region but renders the page structure as a full-width grid (`mock-experience-v2-stage`). For each cell, `resolveV2Cell` (in `experienceResolveV2.ts`) tries the target's mappings against the resolved `data.…` value → falls back to the matching Static Content block → falls back to an empty placeholder. A muted **Default** pill or accent-colored **Dynamic match** pill appears on each cell. The default view (initial render and after Reset) uses `forceDefault: true` so only Static Content shows.
+   - **Refresh Experience** + **Reset to Default Experience** are placed **immediately below** the "Publish succeeded — use Refresh Experience…" paragraph instead of at the bottom of the region, so they're visible without scrolling tall pages. `.mock-experience-v2-live-region .mock-experience-refresh-row` adds `margin-bottom` so the buttons don't visually touch the preview outline below them.
+
 ## Build / deploy hints
 
 - **Vercel:** Root = repo root (where `vercel.json` + `api/` + `client/` live). Preset **Other**; build/output driven by `vercel.json`. SPA rewrite excludes `/api/*`.
@@ -164,15 +216,16 @@ Redux persist whitelist includes `mockEvents`, **`eventPayloads`**, `eventDynami
 - Payload completeness (Trigger gating): `client/src/lib/payloadCompleteness.ts`
 - `customer_id` from aligned payload: `client/src/lib/customerIdFromPayload.ts`
 - Schema rules (locked customer_id, empty-key check, initial schema): `client/src/lib/mockEventSchemaRules.ts`
+- Schema types (`'date'` field type included): `client/src/types/schema.ts`
 - Event name rules: `client/src/lib/eventNameRules.ts`
 - Duplicate name detection: `client/src/hooks/useExistingEventNames.ts`
-- Schema editor (lockable rows, hideable add button): `client/src/components/SchemaEditor.tsx`
-- Number payload input (sanitized, placeholder-aware): `client/src/components/PayloadEditor.tsx` (`NumberField`)
-- Rules + operators: `client/src/store/eventDynamicRulesSlice.ts`, `client/src/lib/ruleMatch.ts`, `client/src/lib/experienceResolve.ts` (`forceDefault` option)
+- Schema editor (lockable rows, hideable add button, date type): `client/src/components/SchemaEditor.tsx`
+- Number payload input (sanitized, placeholder-aware): `client/src/components/PayloadEditor.tsx` (`NumberField`, plus the `case 'date'` branch that auto-opens `<input type="date">`)
+- Rules + operators (v1): `client/src/store/eventDynamicRulesSlice.ts`, `client/src/lib/ruleMatch.ts`, `client/src/lib/experienceResolve.ts` (`forceDefault` option)
 - Field path `data.` helpers: `client/src/lib/personalizationFieldPath.ts`
 - Panel title suffix for Experiences header: `client/src/lib/panelTitle.ts`
 - Per-event card/button accents: `client/src/lib/eventTheme.ts`
-- Live experience UI: `client/src/components/MockExperienceLiveRegion.tsx`
+- Live experience UI (v1): `client/src/components/MockExperienceLiveRegion.tsx`
 - Refresh gate: `client/src/store/experienceRefreshSlice.ts`
 - Personalization fetch: `client/src/lib/personalizationClient.ts` (`customerIdFromMockEvent` vs page-driven path)
 - Create event page: `client/src/pages/CreateMockEventPage.tsx`
@@ -183,6 +236,16 @@ Redux persist whitelist includes `mockEvents`, **`eventPayloads`**, `eventDynami
 - Demo reset: `client/src/components/DemoResetButton.tsx`
 - Vercel producer: `api/publish.js`
 
+### v2 sandbox-track files (Events v2 / Experiences v2)
+
+- Scoped store factory + scope context: `client/src/store/createScopedStore.ts`, `client/src/store/v2Store.ts`, `client/src/scope/ScopeContext.tsx`, `client/src/scope/V2ScopeLayout.tsx`
+- Page Structure: `client/src/store/pageStructureSlice.ts`, `client/src/components/PageStructureEditor.tsx`
+- Static Content: `client/src/store/staticContentSlice.ts`, `client/src/components/StaticContentEditor.tsx`
+- Dynamic Content v2 slice + editor: `client/src/store/eventDynamicTargetsSlice.ts`, `client/src/components/DynamicContentV2Section.tsx`
+- Dynamic content rules section (v1/v2 branch): `client/src/components/DynamicContentRulesSection.tsx`
+- Experiences v2 card + live region + resolver: `client/src/components/MockExperienceV2Card.tsx`, `client/src/components/MockExperienceV2LiveRegion.tsx`, `client/src/lib/experienceResolveV2.ts`
+- Experiences page (v1/v2 branch): `client/src/pages/MockContentPage.tsx`
+
 ---
 
-*Last aligned with implementation in this workspace as of the **May 7, 2026** session: nav copy scrub, payload-completeness Trigger gating, event name rules + duplicate warning, locked `customer_id` schema editor + Edit event flow, number input sanitization, and Personalization API page persistence + `last fetched at` cue.*
+*Last aligned with implementation in this workspace as of the **May 8–9, 2026** session: schema `date` field type, Dynamic Content Rules polish (Content Variations naming, default radio, field path peek), Events v2 / Experiences v2 sandbox tracks (scoped Redux store, scope context + layout, scope-aware navigation), the new `Content` wrapper with **Page Structure** + **Static Content** + **Dynamic Content** subsections on Events v2, target-bound Dynamic Content v2 (Static / Flexible radio, per-cell mappings, Content full-width below the row), and Experiences v2 collapsible cards (custom disclosure triangle, summary-only Trigger, refresh row repositioned under "Publish succeeded").*
