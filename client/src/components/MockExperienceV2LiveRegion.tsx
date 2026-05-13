@@ -116,20 +116,6 @@ export function MockExperienceV2LiveRegion({
 
   return (
     <div className="mock-experience-live-region mock-experience-v2-live-region">
-      <h3 className="dynamic-rules-subheading mock-experience-live-heading">
-        Live experience
-      </h3>
-      <p className="muted small mock-experience-live-lede">
-        Saved <strong>Static Content</strong> renders immediately for every
-        cell. After you trigger, <strong>Refresh Experience</strong> loads the
-        Personalization API (via <strong>customer_id</strong> from this event’s
-        payload) and resolves{' '}
-        <code>{fullFieldPath || '(no field path saved)'}</code> per cell — any
-        configured dynamic targets that match override their cell’s default.{' '}
-        <strong>Reset to Default Experience</strong> returns to the saved
-        Static Content using the same last API response (no new request).
-      </p>
-
       {awaitingRefresh && !loading && !hasEverRefreshed && (
         <p className="muted small mock-experience-live-placeholder">
           Publish succeeded — use <strong>Refresh Experience</strong> when you
