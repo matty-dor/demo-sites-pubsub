@@ -6,6 +6,7 @@ import type {
   StaticBlockContent,
   StaticContent,
 } from '../store/staticContentSlice'
+import { interpolateApiValue } from './apiValueTemplate'
 import { mappingRowMatches } from './ruleMatch'
 import { isValidHttpUrl } from './urlValidation'
 
@@ -87,7 +88,11 @@ export function resolveV2Cell(
     if (match && match.content.trim()) {
       const c = match.content.trim()
       if (match.contentType === 'text') {
-        return { kind: 'text', source: 'matched', text: c }
+        return {
+          kind: 'text',
+          source: 'matched',
+          text: interpolateApiValue(c, keyVal),
+        }
       }
       if (!isValidHttpUrl(c)) return { kind: 'invalidImage', source: 'matched' }
       return { kind: 'image', source: 'matched', url: c }

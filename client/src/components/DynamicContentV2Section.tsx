@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
+  API_VALUE_TEMPLATE_HINT,
+  interpolateApiValue,
+} from '../lib/apiValueTemplate'
+import {
   fieldPathSuffixFromStored,
   normalizeRulesFieldPath,
   wrapPersonalizationProfileRoot,
@@ -19,7 +23,6 @@ import {
   newV2DynamicTarget,
   normalizeV2DynamicConfig,
   setDynamicTargetsForEvent,
-  type V2ContentSourceMode,
   type V2DynamicConfig,
   type V2DynamicTarget,
   type V2DynamicTargetSide,
@@ -130,8 +133,9 @@ type ResolvedPreview =
 /**
  * Compute what to render for a single page-structure cell:
  * - First, evaluate the cell's dynamic mappings (if any) against the resolved key value;
- *   the first match wins.
- * - Otherwise, fall back to the corresponding Static Content block.
+ *   the first match wins. Matched text Content runs through {@link interpolateApiValue}
+ *   so authors can embed `{{api_value}}` and have it replaced with the resolved API value.
+ * - Otherwise, fall back to the corresponding Static Content block (no interpolation).
  * - Otherwise, render an empty placeholder using `cellLabel`.
  */
 function resolvePreviewForCell(
@@ -146,7 +150,9 @@ function resolvePreviewForCell(
     )
     if (match && match.content.trim()) {
       const c = match.content.trim()
-      if (match.contentType === 'text') return { kind: 'text', text: c }
+      if (match.contentType === 'text') {
+        return { kind: 'text', text: interpolateApiValue(c, keyVal) }
+      }
       if (!isValidHttpUrl(c)) return { kind: 'invalidImage' }
       return { kind: 'image', url: c }
     }
@@ -161,9 +167,6 @@ function resolvePreviewForCell(
   }
   return { kind: 'empty', placeholder: cellLabel }
 }
-
-const radioHelp =
-  'Will your content contain the value from your event payload (dynamic), or will the content be hardcoded (static)? For example, if an event payload contained "cart_subtotal," and you want that value to appear in text like \u201CYou have {{cart_subtotal}} in your cart!\u201D, that would be dynamic. If you want something like \u201CYou\u2019ve qualified for free shipping!\u201D, that would be static.'
 
 const previewHint =
   'Preview uses the simulated Personalization response from the Personalization API page (local mode). Cells without a dynamic target fall back to their Static Content value.'
@@ -191,8 +194,6 @@ export function DynamicContentV2Section({ eventId }: Props) {
     (s) => s.simulator.lastPersonalizationFetchedAt,
   )
 
-  const [contentSourceMode, setContentSourceMode] =
-    useState<V2ContentSourceMode>('static')
   const [showPersonalizationPeek, setShowPersonalizationPeek] = useState(false)
   const [fieldPathSuffix, setFieldPathSuffix] = useState('')
   const [targets, setTargets] = useState<V2DynamicTarget[]>([])
@@ -207,7 +208,6 @@ export function DynamicContentV2Section({ eventId }: Props) {
   // Hydrate from the persisted v2 config whenever we switch events or stored data updates.
   useEffect(() => {
     const normalized = normalizeV2DynamicConfig(stored)
-    setContentSourceMode(normalized.contentSourceMode)
     setFieldPathSuffix(
       stored ? fieldPathSuffixFromStored(normalized.fieldPath) : '',
     )
@@ -315,7 +315,6 @@ export function DynamicContentV2Section({ eventId }: Props) {
     if (!suf) {
       return 'Field path must include at least one segment after data. (e.g. entity_id or audiences.31325.phone)'
     }
-    if (contentSourceMode !== 'static') return null
     for (let ti = 0; ti < targets.length; ti++) {
       const t = targets[ti]
       for (let mi = 0; mi < t.staticMappings.length; mi++) {
@@ -340,7 +339,7 @@ export function DynamicContentV2Section({ eventId }: Props) {
       return
     }
     const config: V2DynamicConfig = {
-      contentSourceMode,
+      contentSourceMode: 'static',
       fieldPath: normalizeRulesFieldPath(fieldPathSuffix),
       targets: targets.map((t) => ({
         ...t,
@@ -361,31 +360,6 @@ export function DynamicContentV2Section({ eventId }: Props) {
           {validationError}
         </div>
       )}
-
-      <fieldset className="content-source-fieldset">
-        <legend className="content-source-legend">Content source</legend>
-        <p className="muted small content-source-help">{radioHelp}</p>
-        <div className="radio-row">
-          <label className="radio-option">
-            <input
-              type="radio"
-              name={`content-source-v2-${eventId}`}
-              checked={contentSourceMode === 'static'}
-              onChange={() => setContentSourceMode('static')}
-            />
-            Static
-          </label>
-          <label className="radio-option">
-            <input
-              type="radio"
-              name={`content-source-v2-${eventId}`}
-              checked={contentSourceMode === 'flexible'}
-              onChange={() => setContentSourceMode('flexible')}
-            />
-            Flexible
-          </label>
-        </div>
-      </fieldset>
 
       <label className="stack-label">
         <div className="stack-label-row field-path-label-row">
@@ -438,18 +412,9 @@ export function DynamicContentV2Section({ eventId }: Props) {
 
       <h3 className="dynamic-rules-subheading">Content Variations</h3>
 
-      {contentSourceMode === 'flexible' ?
-        <div className="dynamic-targets-flexible-placeholder">
-          <p className="muted small">
-            Flexible content variations are coming soon — they will let you
-            interpolate event-payload values directly into your content (e.g.{' '}
-            <code>{'You have {{cart_subtotal}} in your cart!'}</code>). Switch
-            back to <strong>Static</strong> to configure variations now.
-          </p>
-        </div>
-      : <div
-          className={`dynamic-targets-editor${inputsCollapsed ? ' inputs-collapsed' : ''}`}
-        >
+      <div
+        className={`dynamic-targets-editor${inputsCollapsed ? ' inputs-collapsed' : ''}`}
+      >
           <div className="dynamic-targets-toolbar">
             <button
               type="button"
@@ -596,17 +561,22 @@ export function DynamicContentV2Section({ eventId }: Props) {
                               <label className="stack-label mapping-cell dynamic-target-content-cell">
                                 <span className="muted small">Content</span>
                                 {m.contentType === 'text' ?
-                                  <textarea
-                                    className="input textarea textarea-compact"
-                                    rows={3}
-                                    placeholder="Place content here"
-                                    value={m.content}
-                                    onChange={(e) =>
-                                      setMapping(target.id, mi, {
-                                        content: e.target.value,
-                                      })
-                                    }
-                                  />
+                                  <>
+                                    <span className="muted small dynamic-target-content-hint">
+                                      {API_VALUE_TEMPLATE_HINT}
+                                    </span>
+                                    <textarea
+                                      className="input textarea textarea-compact"
+                                      rows={3}
+                                      placeholder="Place content here"
+                                      value={m.content}
+                                      onChange={(e) =>
+                                        setMapping(target.id, mi, {
+                                          content: e.target.value,
+                                        })
+                                      }
+                                    />
+                                  </>
                                 : <input
                                     className={`input ${m.content.trim() && !isValidHttpUrl(m.content) ? 'input-invalid' : ''}`}
                                     type="url"
@@ -755,7 +725,6 @@ export function DynamicContentV2Section({ eventId }: Props) {
             </div>
           }
         </div>
-      }
     </div>
   )
 }
