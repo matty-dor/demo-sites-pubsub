@@ -1328,10 +1328,22 @@ a {
 }
 
 .static-content-preview-image {
+  display: block;
+  width: 100%;
   max-width: 100%;
-  max-height: 160px;
-  object-fit: contain;
-  border-radius: var(--radius);
+  height: auto;
+  max-height: none;
+}
+
+/* When a preview cell renders an image, drop its padding / min-height / flex
+   centering so the image fills the row width and the cell height tracks the
+   image's natural aspect ratio. Absolutely-positioned badges keep floating
+   above the image in the top corners. */
+.page-structure-preview-block:has(> .static-content-preview-image) {
+  padding: 0;
+  min-height: 0;
+  display: block;
+  overflow: hidden;
 }
 
 @media (max-width: 720px) {
@@ -1590,10 +1602,18 @@ a {
 }
 
 .mock-experience-v2-cell-image {
+  display: block;
+  width: 100%;
   max-width: 100%;
-  max-height: 220px;
-  object-fit: contain;
-  border-radius: var(--radius);
+  height: auto;
+  max-height: none;
+}
+
+.mock-experience-v2-cell:has(> .mock-experience-v2-cell-image) {
+  padding: 0;
+  min-height: 0;
+  display: block;
+  overflow: hidden;
 }
 
 .mock-experience-v2-cell-source {
