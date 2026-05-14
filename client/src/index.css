@@ -1642,8 +1642,8 @@ a {
 
 .mock-experience-v2-live-region {
   margin-top: 0;
-  /* Light “webpage” canvas — distinct from the card; inner cells keep dark surfaces + light text. */
-  background: #f0f1f4;
+  /* Same token as body copy, page headings, and header primary text (`:root` `--text`). */
+  background: var(--text);
   color: #252a33;
 }
 
