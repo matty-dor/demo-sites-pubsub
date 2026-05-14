@@ -17,6 +17,13 @@ export function fieldNodeToJsonSchema(node: SchemaNode): JsonSchemaFragment {
       return { type: 'boolean' }
     case 'date':
       return { type: 'string', format: 'date' }
+    case 'timestamp':
+      return {
+        type: 'string',
+        format: 'date-time',
+        description:
+          'ISO 8601 timestamp set automatically when the event is triggered in the PoC.',
+      }
     case 'object': {
       const properties: Record<string, JsonSchemaFragment> = {}
       for (const f of node.fields ?? []) {

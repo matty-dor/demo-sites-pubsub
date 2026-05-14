@@ -625,6 +625,10 @@ body {
   color: var(--muted);
 }
 
+.payload-timestamp-readonly {
+  cursor: not-allowed;
+}
+
 .payload-nested {
   padding-left: 0.5rem;
   border-left: 2px solid var(--border);
@@ -1638,4 +1642,21 @@ a {
 
 .mock-experience-v2-live-region {
   margin-top: 0;
+  /* Light “webpage” canvas — distinct from the card; inner cells keep dark surfaces + light text. */
+  background: #f0f1f4;
+  color: #252a33;
+}
+
+.mock-experience-v2-live-region .page-structure-preview-block {
+  color: var(--text);
+}
+
+.mock-experience-v2-live-region .mock-experience-live-placeholder,
+.mock-experience-v2-live-region .mock-experience-live-loading,
+.mock-experience-v2-live-region .mock-experience-refresh-hint {
+  color: #3a4150;
+}
+
+.mock-experience-v2-live-region .mock-experience-live-loading .muted {
+  color: #5c6578;
 }

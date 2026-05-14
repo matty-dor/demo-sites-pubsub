@@ -1,4 +1,11 @@
-export type FieldType = 'string' | 'number' | 'boolean' | 'date' | 'object' | 'array'
+export type FieldType =
+  | 'string'
+  | 'number'
+  | 'boolean'
+  | 'date'
+  | 'timestamp'
+  | 'object'
+  | 'array'
 
 export interface SchemaNode {
   id: string

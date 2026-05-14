@@ -10,10 +10,6 @@ export class PayloadValidationError extends Error {
   }
 }
 
-function typeLabel(n: SchemaNode): string {
-  return n.type;
-}
-
 function validateNode(
   path: string,
   node: SchemaNode,
@@ -45,6 +41,31 @@ function validateNode(
       if (typeof value !== 'boolean') {
         throw new PayloadValidationError(
           `Expected boolean at "${p}"`,
+          p,
+        );
+      }
+      return;
+    }
+    case 'date': {
+      if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        throw new PayloadValidationError(
+          `Expected date string (YYYY-MM-DD) at "${p}"`,
+          p,
+        );
+      }
+      return;
+    }
+    case 'timestamp': {
+      if (typeof value !== 'string' || value.trim() === '') {
+        throw new PayloadValidationError(
+          `Expected non-empty ISO 8601 timestamp string at "${p}"`,
+          p,
+        );
+      }
+      const ms = Date.parse(value);
+      if (Number.isNaN(ms)) {
+        throw new PayloadValidationError(
+          `Expected parseable ISO 8601 timestamp at "${p}"`,
           p,
         );
       }

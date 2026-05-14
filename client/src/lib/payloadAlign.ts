@@ -46,6 +46,9 @@ function alignNode(node: SchemaNode, raw: unknown): unknown {
       return defaultValueForNode(node) as string
     }
 
+    case 'timestamp':
+      return ''
+
     case 'object': {
       const obj =
         raw !== null && typeof raw === 'object' && !Array.isArray(raw)

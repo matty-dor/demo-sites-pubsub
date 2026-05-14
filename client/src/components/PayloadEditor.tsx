@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import type { SchemaNode } from '../types/schema'
 import { defaultValueForNode } from '../lib/schemaDefaults'
 
+const TIMESTAMP_PAYLOAD_PLACEHOLDER =
+  'Timestamp is auto-generated based on when the event is triggered.'
+
 /** Restricts a typed/pasted string to a valid numeric in-progress form: optional `-`, digits, single `.`. */
 function sanitizeNumberInput(raw: string): string {
   let s = raw.replace(/[^\d.\-]/g, '')
@@ -130,6 +133,19 @@ function PayloadField({
               /* showPicker not supported or blocked from this focus event */
             }
           }}
+        />
+      )
+    case 'timestamp':
+      return (
+        <input
+          className="input payload-timestamp-readonly"
+          type="text"
+          readOnly
+          disabled
+          value=""
+          placeholder={TIMESTAMP_PAYLOAD_PLACEHOLDER}
+          title={TIMESTAMP_PAYLOAD_PLACEHOLDER}
+          aria-readonly="true"
         />
       )
     case 'object': {

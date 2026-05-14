@@ -21,6 +21,7 @@ function FieldTypeSelect({
       <option value="number">number</option>
       <option value="boolean">boolean</option>
       <option value="date">date</option>
+      <option value="timestamp">timestamp</option>
       <option value="object">object</option>
       <option value="array">array</option>
     </select>

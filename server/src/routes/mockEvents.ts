@@ -7,6 +7,7 @@ import {
   PayloadValidationError,
   validatePayloadAgainstSchema,
 } from '../lib/validatePayload.js';
+import { injectTriggerTimestamps } from '../lib/injectTriggerTimestamps.js';
 
 export async function mockEventsRoutes(app: FastifyInstance) {
   app.get('/api/mock-events', async (_req, reply) => {
@@ -114,8 +115,18 @@ export async function mockEventsRoutes(app: FastifyInstance) {
       return { error: 'Stored schema is invalid' };
     }
 
+    const rawPayload =
+      body.payload !== null && typeof body.payload === 'object' && !Array.isArray(body.payload)
+        ? (body.payload as Record<string, unknown>)
+        : {};
+
+    const payload = injectTriggerTimestamps(
+      schema as never,
+      rawPayload,
+    );
+
     try {
-      validatePayloadAgainstSchema(schema as never, body.payload);
+      validatePayloadAgainstSchema(schema as never, payload);
     } catch (e) {
       if (e instanceof PayloadValidationError) {
         reply.code(400);
@@ -127,7 +138,7 @@ export async function mockEventsRoutes(app: FastifyInstance) {
     const envelope = {
       eventName: row.name,
       mockEventId: row.id,
-      payload: body.payload,
+      payload,
       publishedAt: new Date().toISOString(),
     };
 

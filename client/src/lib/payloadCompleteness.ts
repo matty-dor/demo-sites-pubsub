@@ -11,6 +11,8 @@ export function isNodeValueComplete(node: SchemaNode, value: unknown): boolean {
       return typeof value === 'boolean'
     case 'date':
       return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
+    case 'timestamp':
+      return true
     case 'object': {
       if (value === null || typeof value !== 'object' || Array.isArray(value)) return false
       const obj = value as Record<string, unknown>

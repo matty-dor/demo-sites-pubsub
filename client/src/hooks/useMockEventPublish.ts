@@ -2,6 +2,7 @@ import { useMutation } from '@tanstack/react-query'
 import { useCallback, useState } from 'react'
 import { api, ApiError } from '../api/http'
 import { backendStorageEnabled } from '../config/storageMode'
+import { injectTriggerTimestamps } from '../lib/injectTriggerTimestamps'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
 import { markExperienceAwaitingRefresh } from '../store/experienceRefreshSlice'
 
@@ -75,9 +76,11 @@ export function useMockEventPublish() {
       payload: Record<string, unknown>
       eventName: string
     }) => {
+      const schema = reduxEvents.find((e) => e.id === id)?.schema ?? []
+      const payloadToSend = injectTriggerTimestamps(schema, payload)
       if (confluentPublishUrl) {
         return publishViaConfluentRest({
-          payload,
+          payload: payloadToSend,
           eventName,
           mockEventId: id,
         })
@@ -91,7 +94,7 @@ export function useMockEventPublish() {
         envelope?: unknown
       }>(`/api/mock-events/${id}/publish`, {
         method: 'POST',
-        body: JSON.stringify({ payload }),
+        body: JSON.stringify({ payload: payloadToSend }),
       })
     },
     onSuccess: (_data, vars) => {
@@ -115,14 +118,17 @@ export function useMockEventPublish() {
         reduxEvents.find((e) => e.id === id)?.name ||
         'event'
 
+      const schema = reduxEvents.find((e) => e.id === id)?.schema ?? []
+      const payloadToSend = injectTriggerTimestamps(schema, payload)
+
       if (confluentPublishUrl || backend) {
-        publishRemote.mutate({ id, payload, eventName: name })
+        publishRemote.mutate({ id, payload: payloadToSend, eventName: name })
         return
       }
       const envelope = {
         eventName: name,
         mockEventId: id,
-        payload,
+        payload: payloadToSend,
         publishedAt: new Date().toISOString(),
       }
       const body = {
