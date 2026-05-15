@@ -129,14 +129,15 @@ export function MockExperienceV2Card({
       style={getEventThemeStyle(eventId)}
       open={cardExpanded}
       onToggle={(e) => {
+        // Ignore toggles from nested <details> (e.g. trigger result) that bubble up.
         if (e.target !== e.currentTarget) return
-        e.preventDefault()
-        dispatch(
-          setExperienceV2CardExpanded({
-            eventId,
-            expanded: !cardExpanded,
-          }),
-        )
+        // Sync Redux to the element's new state. Do not use `!cardExpanded` — programmatic
+        // `open` updates (e.g. after redux-persist rehydrate) also fire `toggle`, and flipping
+        // from stale closure would fight React. Do not `preventDefault()` on `toggle` here:
+        // canceling tells the browser to revert `open` while React keeps forcing `open={true}`,
+        // which causes rapid open/closed flashing.
+        const expanded = (e.currentTarget as HTMLDetailsElement).open
+        dispatch(setExperienceV2CardExpanded({ eventId, expanded }))
       }}
     >
       <summary className="mock-experience-v2-summary">
