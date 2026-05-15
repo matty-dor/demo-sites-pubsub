@@ -36,17 +36,11 @@ export function AppHeader() {
         <DemoResetButton />
       </div>
       <nav className="app-nav">
-        <NavLink to="/" end className={navLinkClass}>
+        <NavLink to="/v2" end className={navLinkClass}>
           Events
         </NavLink>
-        <NavLink to="/mock-content" className={navLinkClass}>
-          Experiences
-        </NavLink>
-        <NavLink to="/v2" end className={navLinkClass}>
-          Events v2
-        </NavLink>
         <NavLink to="/v2/content" className={navLinkClass}>
-          Experiences v2
+          Experiences
         </NavLink>
         <NavLink to="/personalization" className={navLinkClass}>
           Personalization API
