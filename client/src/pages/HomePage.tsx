@@ -226,7 +226,7 @@ export function HomePage() {
               <div className="mock-event-trigger mock-event-trigger-row">
                 <button
                   type="button"
-                  className="btn btn-primary"
+                  className="btn btn-primary mock-event-trigger-btn"
                   disabled={backend && publishPending}
                   aria-disabled={!payloadComplete || (backend && publishPending)}
                   title={

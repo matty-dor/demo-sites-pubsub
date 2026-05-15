@@ -210,7 +210,7 @@ export function MockContentPage() {
               <div className="mock-event-trigger">
                 <button
                   type="button"
-                  className="btn btn-primary"
+                  className="btn btn-primary mock-event-trigger-btn"
                   disabled={backend && publishPending}
                   onClick={() => {
                     const raw =

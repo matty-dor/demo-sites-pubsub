@@ -67,7 +67,7 @@ export function MockExperienceV2Card({
           </div>
           <button
             type="button"
-            className="btn btn-primary mock-experience-v2-summary-trigger"
+            className="btn btn-primary mock-experience-v2-summary-trigger mock-event-trigger-btn"
             disabled={backend && publishPending}
             onClick={handleSummaryTrigger}
           >

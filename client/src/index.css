@@ -397,6 +397,20 @@ body {
   cursor: not-allowed;
 }
 
+/* Event / Experiences “Trigger … Event” — clear press feedback without affecting other primary CTAs. */
+.btn-primary.mock-event-trigger-btn:not(:disabled) {
+  transition:
+    background-color 90ms ease,
+    color 90ms ease,
+    border-color 90ms ease;
+}
+
+.btn-primary.mock-event-trigger-btn:active:not(:disabled) {
+  background: #0b1020;
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 72%, #0b1020 28%);
+}
+
 .btn[aria-disabled='true']:not(:disabled) {
   opacity: 0.55;
   cursor: not-allowed;
@@ -526,6 +540,13 @@ body {
 .card.mock-event-card .btn-primary:disabled,
 .card.mock-experience-card .btn-primary:disabled {
   opacity: 0.45;
+}
+
+.card.mock-event-card .btn-primary.mock-event-trigger-btn:active:not(:disabled),
+.card.mock-experience-card .btn-primary.mock-event-trigger-btn:active:not(:disabled) {
+  background: #0b1020;
+  color: var(--event-accent);
+  border-color: color-mix(in srgb, var(--event-accent) 72%, #0b1020 28%);
 }
 
 .card.mock-event-card .btn-secondary,
