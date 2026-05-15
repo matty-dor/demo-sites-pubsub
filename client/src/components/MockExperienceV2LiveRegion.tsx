@@ -1,113 +1,45 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useStore } from 'react-redux'
-import { extractCustomerIdFromPayload } from '../lib/customerIdFromPayload'
-import { fetchPersonalizationSnapshot } from '../lib/personalizationClient'
+import { useMemo } from 'react'
 import { getAtPath } from '../lib/path'
 import {
   normalizeRulesFieldPath,
   wrapPersonalizationProfileRoot,
 } from '../lib/personalizationFieldPath'
 import { resolveV2Cell, staticBlockFor } from '../lib/experienceResolveV2'
-import { buildDefaultPayload } from '../lib/schemaDefaults'
-import type { RootState } from '../store'
 import type {
   V2DynamicConfig,
   V2DynamicTargetSide,
 } from '../store/eventDynamicTargetsSlice'
-import { clearExperienceAwaitingRefresh } from '../store/experienceRefreshSlice'
-import { useAppDispatch, useAppSelector } from '../store/hooks'
-import type {
-  PageStructureRow,
-} from '../store/pageStructureSlice'
-import { setSimulatedPersonalizationResponse } from '../store/simulatorSlice'
+import type { PageStructureRow } from '../store/pageStructureSlice'
 import type { StaticContent } from '../store/staticContentSlice'
-import type { SchemaNode } from '../types/schema'
-
-type DisplaySource = 'default' | 'refreshed'
 
 type Props = {
-  eventId: string
-  eventName: string
-  eventSchema: SchemaNode[]
   rows: PageStructureRow[]
   staticContent: StaticContent | undefined
   dynamicConfig: V2DynamicConfig | undefined
+  /** Resolved Personalization value at the configured field path; omit when showing default-only view. */
+  personalizationData: unknown
+  loading: boolean
+  forceDefault: boolean
 }
 
 export function MockExperienceV2LiveRegion({
-  eventId,
-  eventName,
-  eventSchema,
   rows,
   staticContent,
   dynamicConfig,
+  personalizationData,
+  loading,
+  forceDefault,
 }: Props) {
-  const dispatch = useAppDispatch()
-  const store = useStore()
-  const awaitingRefresh = useAppSelector(
-    (s) => s.experienceRefresh.awaitingRefreshByEventId[eventId],
-  )
-
-  const [personalizationData, setPersonalizationData] =
-    useState<unknown>(undefined)
-  const [displaySource, setDisplaySource] = useState<DisplaySource>('default')
-  const [loading, setLoading] = useState(false)
-  const [hasEverRefreshed, setHasEverRefreshed] = useState(false)
-
-  // Reset to a clean default view whenever we switch events.
-  useEffect(() => {
-    setPersonalizationData(undefined)
-    setDisplaySource('default')
-    setHasEverRefreshed(false)
-    setLoading(false)
-  }, [eventId])
-
   const fullFieldPath =
     dynamicConfig ? normalizeRulesFieldPath(dynamicConfig.fieldPath) : ''
   const keyVal = useMemo(() => {
     if (!fullFieldPath) return undefined
-    if (displaySource === 'default') return undefined
-    return getAtPath(wrapPersonalizationProfileRoot(personalizationData), fullFieldPath)
-  }, [fullFieldPath, personalizationData, displaySource])
-
-  const showRefresh = Boolean(awaitingRefresh) || loading || hasEverRefreshed
-
-  const runRefresh = useCallback(async () => {
-    setLoading(true)
-    const state = store.getState() as RootState
-    const payload =
-      state.eventPayloads.byEventId[eventId] ??
-      buildDefaultPayload(eventSchema, eventName)
-    const cid = extractCustomerIdFromPayload(eventSchema, payload)
-
-    try {
-      const snap = await fetchPersonalizationSnapshot({
-        getState: () => store.getState() as RootState,
-        customerIdFromMockEvent: cid ?? '',
-      })
-      dispatch(
-        setSimulatedPersonalizationResponse({
-          ok: snap.ok,
-          status: snap.status ?? 200,
-          data: snap.data,
-          error: snap.error,
-        }),
-      )
-      dispatch(clearExperienceAwaitingRefresh(eventId))
-      setPersonalizationData(snap.data)
-      setDisplaySource('refreshed')
-      setHasEverRefreshed(true)
-    } finally {
-      setLoading(false)
-    }
-  }, [dispatch, eventId, eventName, eventSchema, store])
-
-  const resetToDefaultExperience = useCallback(() => {
-    if (!hasEverRefreshed) return
-    setDisplaySource('default')
-  }, [hasEverRefreshed])
-
-  const forceDefault = displaySource === 'default'
+    if (forceDefault) return undefined
+    return getAtPath(
+      wrapPersonalizationProfileRoot(personalizationData),
+      fullFieldPath,
+    )
+  }, [fullFieldPath, personalizationData, forceDefault])
 
   const cellLabel = (rowIdx: number, side: V2DynamicTargetSide) =>
     side === null
@@ -116,40 +48,6 @@ export function MockExperienceV2LiveRegion({
 
   return (
     <div className="mock-experience-live-region mock-experience-v2-live-region">
-      {awaitingRefresh && !loading && !hasEverRefreshed && (
-        <p className="muted small mock-experience-live-placeholder">
-          Publish succeeded — use <strong>Refresh Experience</strong> when you
-          want to fetch personalization for this card.
-        </p>
-      )}
-
-      {showRefresh && (
-        <div className="mock-experience-refresh-row">
-          <button
-            type="button"
-            className="btn btn-secondary"
-            disabled={loading}
-            onClick={() => void runRefresh()}
-          >
-            Refresh Experience
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            disabled={!hasEverRefreshed || loading}
-            onClick={resetToDefaultExperience}
-            title="Show saved Static Content for every cell using the same personalization response (no new API call)"
-          >
-            Reset to Default Experience
-          </button>
-          {awaitingRefresh && !loading && (
-            <span className="muted small mock-experience-refresh-hint">
-              Recommended after your latest trigger.
-            </span>
-          )}
-        </div>
-      )}
-
       {loading ?
         <div className="mock-experience-live-loading" aria-busy="true">
           <div className="mock-experience-live-skeleton" />

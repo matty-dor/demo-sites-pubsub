@@ -549,6 +549,13 @@ body {
   border-color: color-mix(in srgb, var(--event-accent) 72%, #0b1020 28%);
 }
 
+/* v2: summary can inherit UA button chrome; keep primary actions visually identical to Trigger. */
+.card.mock-experience-v2-card > .mock-experience-v2-summary .btn-primary {
+  -webkit-appearance: none;
+  appearance: none;
+  font: inherit;
+}
+
 .card.mock-event-card .btn-secondary,
 .card.mock-experience-card .btn-secondary {
   border-color: color-mix(in srgb, var(--event-accent) 38%, var(--border) 62%);
@@ -1555,6 +1562,26 @@ a {
   flex-wrap: wrap;
 }
 
+.mock-experience-v2-summary-actions {
+  width: 100%;
+  margin-top: 0.35rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid
+    color-mix(in srgb, var(--border) 82%, var(--event-accent, var(--accent)) 18%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.mock-experience-v2-summary-actions .mock-experience-live-placeholder {
+  margin: 0;
+}
+
+.mock-experience-v2-summary-refresh-row {
+  margin-bottom: 0;
+  margin-top: 0;
+}
+
 .mock-experience-v2-disclosure {
   width: 0;
   height: 0;
@@ -1598,10 +1625,6 @@ a {
   flex-direction: column;
   gap: 0.75rem;
   width: 100%;
-}
-
-.mock-experience-v2-live-region .mock-experience-refresh-row {
-  margin-bottom: 0.75rem;
 }
 
 .mock-experience-v2-row {
@@ -1672,9 +1695,7 @@ a {
   color: var(--text);
 }
 
-.mock-experience-v2-live-region .mock-experience-live-placeholder,
-.mock-experience-v2-live-region .mock-experience-live-loading,
-.mock-experience-v2-live-region .mock-experience-refresh-hint {
+.mock-experience-v2-live-region .mock-experience-live-loading {
   color: #3a4150;
 }
 

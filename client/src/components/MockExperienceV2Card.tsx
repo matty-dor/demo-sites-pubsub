@@ -1,15 +1,24 @@
+import { useCallback, useEffect, useState } from 'react'
+import { useStore } from 'react-redux'
 import { backendStorageEnabled } from '../config/storageMode'
 import { getEventThemeStyle } from '../lib/eventTheme'
 import { useMockEventPublish } from '../hooks/useMockEventPublish'
+import { extractCustomerIdFromPayload } from '../lib/customerIdFromPayload'
+import { fetchPersonalizationSnapshot } from '../lib/personalizationClient'
 import { withEventTypeFirst } from '../lib/eventTypePayload'
 import { alignPayloadToMockSchema } from '../lib/payloadAlign'
 import { buildDefaultPayload } from '../lib/schemaDefaults'
+import type { RootState } from '../store'
 import type { V2DynamicConfig } from '../store/eventDynamicTargetsSlice'
-import { useAppSelector } from '../store/hooks'
+import { clearExperienceAwaitingRefresh } from '../store/experienceRefreshSlice'
+import { useAppDispatch, useAppSelector } from '../store/hooks'
 import type { PageStructureRow } from '../store/pageStructureSlice'
+import { setSimulatedPersonalizationResponse } from '../store/simulatorSlice'
 import type { StaticContent } from '../store/staticContentSlice'
 import type { SchemaNode } from '../types/schema'
 import { MockExperienceV2LiveRegion } from './MockExperienceV2LiveRegion'
+
+type DisplaySource = 'default' | 'refreshed'
 
 type Props = {
   eventId: string
@@ -28,11 +37,66 @@ export function MockExperienceV2Card({
   staticContent,
   dynamicConfig,
 }: Props) {
+  const dispatch = useAppDispatch()
+  const store = useStore()
   const backend = backendStorageEnabled()
   const payload = useAppSelector(
     (s) => s.eventPayloads.byEventId[eventId],
   )
+  const awaitingRefresh = useAppSelector(
+    (s) => s.experienceRefresh.awaitingRefreshByEventId[eventId],
+  )
   const { triggerPublish, publishStatus, publishPending } = useMockEventPublish()
+
+  const [personalizationData, setPersonalizationData] =
+    useState<unknown>(undefined)
+  const [displaySource, setDisplaySource] = useState<DisplaySource>('default')
+  const [loading, setLoading] = useState(false)
+  const [hasEverRefreshed, setHasEverRefreshed] = useState(false)
+
+  useEffect(() => {
+    setPersonalizationData(undefined)
+    setDisplaySource('default')
+    setHasEverRefreshed(false)
+    setLoading(false)
+  }, [eventId])
+
+  const showRefresh = Boolean(awaitingRefresh) || loading || hasEverRefreshed
+
+  const runRefresh = useCallback(async () => {
+    setLoading(true)
+    const state = store.getState() as RootState
+    const pay =
+      state.eventPayloads.byEventId[eventId] ??
+      buildDefaultPayload(eventSchema, eventName)
+    const cid = extractCustomerIdFromPayload(eventSchema, pay)
+
+    try {
+      const snap = await fetchPersonalizationSnapshot({
+        getState: () => store.getState() as RootState,
+        customerIdFromMockEvent: cid ?? '',
+      })
+      dispatch(
+        setSimulatedPersonalizationResponse({
+          ok: snap.ok,
+          status: snap.status ?? 200,
+          data: snap.data,
+          error: snap.error,
+        }),
+      )
+      dispatch(clearExperienceAwaitingRefresh(eventId))
+      setPersonalizationData(snap.data)
+      setDisplaySource('refreshed')
+      setHasEverRefreshed(true)
+    } finally {
+      setLoading(false)
+    }
+  }, [dispatch, eventId, eventName, eventSchema, store])
+
+  const resetToDefaultExperience = useCallback(() => {
+    if (!hasEverRefreshed) return
+    setDisplaySource('default')
+  }, [hasEverRefreshed])
 
   const handleTrigger = () => {
     const raw = payload ?? buildDefaultPayload(eventSchema, eventName)
@@ -43,13 +107,17 @@ export function MockExperienceV2Card({
     triggerPublish(eventId, aligned, eventName)
   }
 
-  // Click handler for the trigger button placed inside <summary>.
-  // Prevents the default <details> toggle while still firing the trigger.
   const handleSummaryTrigger = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault()
     e.stopPropagation()
     handleTrigger()
   }
+
+  const stopSummaryToggle = (e: React.MouseEvent) => {
+    e.stopPropagation()
+  }
+
+  const forceDefault = displaySource === 'default'
 
   return (
     <details
@@ -74,16 +142,60 @@ export function MockExperienceV2Card({
             Trigger {eventName} Event
           </button>
         </div>
+
+        {showRefresh && (
+          <div
+            className="mock-experience-v2-summary-actions"
+            onClick={stopSummaryToggle}
+          >
+            {awaitingRefresh && !loading && !hasEverRefreshed && (
+              <p className="muted small mock-experience-live-placeholder">
+                Publish succeeded — use <strong>Refresh Experience</strong> when
+                you want to fetch personalization for this card.
+              </p>
+            )}
+            <div className="mock-experience-refresh-row mock-experience-v2-summary-refresh-row">
+              <button
+                type="button"
+                className="btn btn-primary mock-event-trigger-btn"
+                disabled={loading}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  void runRefresh()
+                }}
+              >
+                Refresh Experience
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary mock-event-trigger-btn"
+                disabled={!hasEverRefreshed || loading}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  resetToDefaultExperience()
+                }}
+                title="Show saved Static Content for every cell using the same personalization response (no new API call)"
+              >
+                Reset to Default Experience
+              </button>
+              {awaitingRefresh && !loading && (
+                <span className="muted small mock-experience-refresh-hint">
+                  Recommended after your latest trigger.
+                </span>
+              )}
+            </div>
+          </div>
+        )}
       </summary>
 
       <div className="mock-experience-v2-body">
         <MockExperienceV2LiveRegion
-          eventId={eventId}
-          eventName={eventName}
-          eventSchema={eventSchema}
           rows={rows}
           staticContent={staticContent}
           dynamicConfig={dynamicConfig}
+          personalizationData={personalizationData}
+          loading={loading}
+          forceDefault={forceDefault}
         />
 
         {publishStatus[eventId] && (
