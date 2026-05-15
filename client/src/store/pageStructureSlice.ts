@@ -3,6 +3,8 @@ import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
 /** When `hide`, the row is omitted from Static Content; Dynamic Content may still target its cells. */
 export type PageStructureRowDefaultDisplay = 'show' | 'hide'
 
+export type PageStructureRowLayout = 'full' | 'half-half'
+
 export type PageStructureRow = {
   id: string
   layout: PageStructureRowLayout
