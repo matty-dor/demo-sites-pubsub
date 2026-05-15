@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { isValidHttpUrl } from '../lib/urlValidation'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
-import type {
-  PageStructureRow,
-  PageStructureRowLayout,
+import {
+  isPageStructureRowVisibleForStaticContent,
+  normalizePageStructureRow,
+  type PageStructureRow,
+  type PageStructureRowLayout,
 } from '../store/pageStructureSlice'
 import {
   setStaticContentForEvent,
@@ -50,51 +52,106 @@ function blockLabel(rowIdx: number, layout: PageStructureRowLayout, blockIdx: nu
   return `Row ${rowIdx + 1} · ${blockIdx === 0 ? 'A' : 'B'}`
 }
 
+/** 1-based index of `rowId` in the full page structure (for labels). */
+function structureRowNumber(allRows: PageStructureRow[], rowId: string): number {
+  const idx = allRows.findIndex((r) => r.id === rowId)
+  return idx < 0 ? 1 : idx + 1
+}
+
+/**
+ * Only **Show** rows participate in static content storage and editor.
+ */
+function reconcileForStaticEditor(
+  allStructureRows: PageStructureRow[],
+  stored: StaticContent | undefined,
+): StaticContent {
+  const staticRows = allStructureRows
+    .map(normalizePageStructureRow)
+    .filter(isPageStructureRowVisibleForStaticContent)
+  return reconcileToStructure(staticRows, stored)
+}
+
+function hasInvalidUrl(
+  content: StaticContent,
+  staticRows: PageStructureRow[],
+): boolean {
+  for (const row of staticRows) {
+    const blocks = content.byRowId[row.id] ?? []
+    for (const block of blocks) {
+      if (
+        block.contentType === 'imageUrl' &&
+        block.content.trim().length > 0 &&
+        !isValidHttpUrl(block.content)
+      ) {
+        return true
+      }
+    }
+  }
+  return false
+}
+
 export function StaticContentEditor({ eventId }: Props) {
   const dispatch = useAppDispatch()
   const structureRows = useAppSelector(
     (s) => s.pageStructure.byEventId[eventId]?.rows ?? [],
   )
+  const staticStructureRows = useMemo(
+    () =>
+      structureRows
+        .map(normalizePageStructureRow)
+        .filter(isPageStructureRowVisibleForStaticContent),
+    [structureRows],
+  )
   const stored = useAppSelector((s) => s.staticContent.byEventId[eventId])
   const hasSaved = stored != null
 
   const [editing, setEditing] = useState<boolean>(
-    !hasSaved && structureRows.length > 0,
+    !hasSaved && staticStructureRows.length > 0,
   )
   const [draft, setDraft] = useState<StaticContent>(() =>
-    reconcileToStructure(structureRows, stored),
+    reconcileForStaticEditor(structureRows, stored),
   )
   const [saveFlash, setSaveFlash] = useState(false)
   const [inputsCollapsed, setInputsCollapsed] = useState(false)
   const [openRowIds, setOpenRowIds] = useState<Set<string>>(
-    () => new Set(structureRows.map((r) => r.id)),
+    () => new Set(staticStructureRows.map((r) => r.id)),
   )
 
-  // Make brand-new rows added via Page Structure default to "open" in this editor as well.
+  // Drop **Hide** row ids; open only newly added **Show** rows (preserve user-collapsed rows).
   useEffect(() => {
     setOpenRowIds((prev) => {
-      let changed = false
-      const next = new Set(prev)
-      for (const r of structureRows) {
-        if (!next.has(r.id)) {
-          next.add(r.id)
-          changed = true
-        }
+      const allowed = new Set(staticStructureRows.map((r) => r.id))
+      const next = new Set<string>()
+      for (const id of prev) {
+        if (allowed.has(id)) next.add(id)
       }
-      return changed ? next : prev
+      for (const r of staticStructureRows) {
+        if (!prev.has(r.id)) next.add(r.id)
+      }
+      if (next.size === prev.size) {
+        let same = true
+        for (const id of next) {
+          if (!prev.has(id)) {
+            same = false
+            break
+          }
+        }
+        if (same) return prev
+      }
+      return next
     })
-  }, [structureRows])
+  }, [staticStructureRows])
 
   // Keep the read-mode "effective" view aligned with structure changes that happen elsewhere.
   useEffect(() => {
     if (!editing) {
-      setDraft(reconcileToStructure(structureRows, stored))
+      setDraft(reconcileForStaticEditor(structureRows, stored))
     }
   }, [editing, stored, structureRows])
 
   const effective = editing
     ? draft
-    : reconcileToStructure(structureRows, stored)
+    : reconcileForStaticEditor(structureRows, stored)
 
   function setBlockField(
     rowId: string,
@@ -113,7 +170,7 @@ export function StaticContentEditor({ eventId }: Props) {
   }
 
   function startEditing() {
-    setDraft(reconcileToStructure(structureRows, stored))
+    setDraft(reconcileForStaticEditor(structureRows, stored))
     setEditing(true)
   }
 
@@ -125,7 +182,7 @@ export function StaticContentEditor({ eventId }: Props) {
     dispatch(
       setStaticContentForEvent({
         eventId,
-        content: reconcileToStructure(structureRows, draft),
+        content: reconcileForStaticEditor(structureRows, draft),
       }),
     )
     setEditing(false)
@@ -138,6 +195,17 @@ export function StaticContentEditor({ eventId }: Props) {
       <p className="muted small">
         Configure rows in the <strong>Page Structure</strong> section above first, then return
         here to populate each row with content.
+      </p>
+    )
+  }
+
+  if (staticStructureRows.length === 0) {
+    return (
+      <p className="muted small">
+        Every row is set to <strong>Hide</strong> under Page Structure →{' '}
+        <strong>Default Display</strong>. Static content only applies to rows set to{' '}
+        <strong>Show</strong>. Use <strong>Dynamic Content</strong> to add targets for{' '}
+        <strong>Hide</strong> rows.
       </p>
     )
   }
@@ -179,7 +247,9 @@ export function StaticContentEditor({ eventId }: Props) {
             </button>
           ) : (
             <>
-              {structureRows.map((row, rowIdx) => {
+              {staticStructureRows.map((row) => {
+                const rowNum = structureRowNumber(structureRows, row.id)
+                const rowIdx0 = rowNum - 1
                 const blocks =
                   draft.byRowId[row.id] ??
                   Array.from({ length: blocksForLayout(row.layout) }, () =>
@@ -203,7 +273,7 @@ export function StaticContentEditor({ eventId }: Props) {
                   >
                     <summary className="static-content-row-head">
                       <span className="page-structure-row-label">
-                        Row {rowIdx + 1} ·{' '}
+                        Row {rowNum} ·{' '}
                         {row.layout === 'full' ? 'Full-Width' : '50-50'}
                       </span>
                     </summary>
@@ -222,7 +292,7 @@ export function StaticContentEditor({ eventId }: Props) {
                             className="static-content-block-editor"
                           >
                             <div className="muted small static-content-block-label">
-                              {blockLabel(rowIdx, row.layout, blockIdx)}
+                              {blockLabel(rowIdx0, row.layout, blockIdx)}
                             </div>
                             <label className="stack-label">
                               <span className="muted small">Content Type</span>
@@ -296,7 +366,7 @@ export function StaticContentEditor({ eventId }: Props) {
                   type="button"
                   className="btn btn-primary"
                   onClick={save}
-                  disabled={hasInvalidUrl(draft)}
+                  disabled={hasInvalidUrl(draft, staticStructureRows)}
                 >
                   Save Static Content
                 </button>
@@ -306,13 +376,15 @@ export function StaticContentEditor({ eventId }: Props) {
         </div>
 
         <div className="static-content-preview">
-          {structureRows.map((row, rowIdx) => {
+          {staticStructureRows.map((row) => {
+            const rowNum = structureRowNumber(structureRows, row.id)
+            const rowIdx0 = rowNum - 1
             const blocks = effective.byRowId[row.id] ?? []
             return (
               <div
                 key={row.id}
                 className={`page-structure-preview-row page-structure-preview-row-${row.layout}`}
-                aria-label={`Row ${rowIdx + 1} preview`}
+                aria-label={`Row ${rowNum} preview`}
               >
                 {blocks.map((block, blockIdx) => (
                   <div
@@ -321,7 +393,7 @@ export function StaticContentEditor({ eventId }: Props) {
                   >
                     {renderBlockPreview(
                       block,
-                      blockLabel(rowIdx, row.layout, blockIdx),
+                      blockLabel(rowIdx0, row.layout, blockIdx),
                     )}
                   </div>
                 ))}
@@ -332,21 +404,6 @@ export function StaticContentEditor({ eventId }: Props) {
       </div>
     </div>
   )
-}
-
-function hasInvalidUrl(content: StaticContent): boolean {
-  for (const blocks of Object.values(content.byRowId)) {
-    for (const block of blocks) {
-      if (
-        block.contentType === 'imageUrl' &&
-        block.content.trim().length > 0 &&
-        !isValidHttpUrl(block.content)
-      ) {
-        return true
-      }
-    }
-  }
-  return false
 }
 
 function renderBlockPreview(

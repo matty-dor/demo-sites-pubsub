@@ -11,6 +11,7 @@ import { buildDefaultPayload } from '../lib/schemaDefaults'
 import type { RootState } from '../store'
 import type { V2DynamicConfig } from '../store/eventDynamicTargetsSlice'
 import { clearExperienceAwaitingRefresh } from '../store/experienceRefreshSlice'
+import { setExperienceV2CardExpanded } from '../store/experienceV2CardExpandSlice'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
 import type { PageStructureRow } from '../store/pageStructureSlice'
 import { setSimulatedPersonalizationResponse } from '../store/simulatorSlice'
@@ -45,6 +46,9 @@ export function MockExperienceV2Card({
   )
   const awaitingRefresh = useAppSelector(
     (s) => s.experienceRefresh.awaitingRefreshByEventId[eventId],
+  )
+  const cardExpanded = useAppSelector(
+    (s) => s.experienceV2CardExpand.expandedByEventId[eventId] === true,
   )
   const { triggerPublish, publishStatus, publishPending } = useMockEventPublish()
 
@@ -123,7 +127,17 @@ export function MockExperienceV2Card({
     <details
       className="card mock-experience-card mock-experience-v2-card"
       style={getEventThemeStyle(eventId)}
-      open
+      open={cardExpanded}
+      onToggle={(e) => {
+        if (e.target !== e.currentTarget) return
+        e.preventDefault()
+        dispatch(
+          setExperienceV2CardExpanded({
+            eventId,
+            expanded: !cardExpanded,
+          }),
+        )
+      }}
     >
       <summary className="mock-experience-v2-summary">
         <div className="mock-experience-v2-summary-inner">

@@ -19,6 +19,7 @@ import { eventPayloadsSlice } from './eventPayloadsSlice'
 import { pageStructureSlice } from './pageStructureSlice'
 import { staticContentSlice } from './staticContentSlice'
 import { eventDynamicTargetsSlice } from './eventDynamicTargetsSlice'
+import { experienceV2CardExpandSlice } from './experienceV2CardExpandSlice'
 
 const rootReducer = combineReducers({
   mockEvents: mockEventsSlice.reducer,
@@ -30,6 +31,7 @@ const rootReducer = combineReducers({
   pageStructure: pageStructureSlice.reducer,
   staticContent: staticContentSlice.reducer,
   eventDynamicTargets: eventDynamicTargetsSlice.reducer,
+  experienceV2CardExpand: experienceV2CardExpandSlice.reducer,
 })
 
 /**
@@ -50,6 +52,7 @@ export function createScopedAppStore(persistKey: string) {
       'pageStructure',
       'staticContent',
       'eventDynamicTargets',
+      'experienceV2CardExpand',
     ],
   }
 

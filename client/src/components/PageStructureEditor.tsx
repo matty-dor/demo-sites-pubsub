@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
 import {
+  normalizePageStructureRow,
   setPageStructureForEvent,
   type PageStructureRow,
+  type PageStructureRowDefaultDisplay,
   type PageStructureRowLayout,
 } from '../store/pageStructureSlice'
 
@@ -15,8 +17,20 @@ const LAYOUT_OPTIONS: { value: PageStructureRowLayout; label: string }[] = [
   { value: 'half-half', label: '50-50' },
 ]
 
+const DEFAULT_DISPLAY_OPTIONS: {
+  value: PageStructureRowDefaultDisplay
+  label: string
+}[] = [
+  { value: 'show', label: 'Show' },
+  { value: 'hide', label: 'Hide' },
+]
+
 function newRow(): PageStructureRow {
-  return { id: crypto.randomUUID(), layout: 'full' }
+  return { id: crypto.randomUUID(), layout: 'full', defaultDisplay: 'show' }
+}
+
+function normalizeRows(rows: PageStructureRow[]): PageStructureRow[] {
+  return rows.map(normalizePageStructureRow)
 }
 
 export function PageStructureEditor({ eventId }: Props) {
@@ -25,23 +39,25 @@ export function PageStructureEditor({ eventId }: Props) {
   const hasSaved = stored != null
 
   const [editing, setEditing] = useState<boolean>(!hasSaved)
-  const [draftRows, setDraftRows] = useState<PageStructureRow[]>(
-    stored?.rows?.length ? stored.rows : [newRow()],
+  const [draftRows, setDraftRows] = useState<PageStructureRow[]>(() =>
+    normalizeRows(stored?.rows?.length ? stored.rows : [newRow()]),
   )
   const [saveFlash, setSaveFlash] = useState(false)
 
   useEffect(() => {
     if (!editing) {
-      setDraftRows(stored?.rows?.length ? stored.rows : [newRow()])
+      setDraftRows(
+        normalizeRows(stored?.rows?.length ? stored.rows : [newRow()]),
+      )
     }
   }, [editing, stored])
 
   const displayRows: PageStructureRow[] = editing
     ? draftRows
-    : (stored?.rows ?? [])
+    : normalizeRows(stored?.rows ?? [])
 
   function startEditing() {
-    setDraftRows(stored?.rows?.length ? stored.rows : [newRow()])
+    setDraftRows(normalizeRows(stored?.rows?.length ? stored.rows : [newRow()]))
     setEditing(true)
   }
 
@@ -53,7 +69,7 @@ export function PageStructureEditor({ eventId }: Props) {
     dispatch(
       setPageStructureForEvent({
         eventId,
-        structure: { rows: draftRows },
+        structure: { rows: normalizeRows(draftRows) },
       }),
     )
     setEditing(false)
@@ -64,6 +80,15 @@ export function PageStructureEditor({ eventId }: Props) {
   function setLayout(rowId: string, layout: PageStructureRowLayout) {
     setDraftRows((prev) =>
       prev.map((r) => (r.id === rowId ? { ...r, layout } : r)),
+    )
+  }
+
+  function setDefaultDisplay(
+    rowId: string,
+    defaultDisplay: PageStructureRowDefaultDisplay,
+  ) {
+    setDraftRows((prev) =>
+      prev.map((r) => (r.id === rowId ? { ...r, defaultDisplay } : r)),
     )
   }
 
@@ -131,6 +156,26 @@ export function PageStructureEditor({ eventId }: Props) {
                     </label>
                   ))}
                 </div>
+                <label className="stack-label page-structure-default-display">
+                  <span className="muted small">Default Display</span>
+                  <select
+                    className="input"
+                    value={row.defaultDisplay}
+                    onChange={(e) =>
+                      setDefaultDisplay(
+                        row.id,
+                        e.target.value as PageStructureRowDefaultDisplay,
+                      )
+                    }
+                    aria-label={`Default display for Row ${i + 1}`}
+                  >
+                    {DEFAULT_DISPLAY_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
             ))}
 
@@ -176,19 +221,34 @@ export function PageStructureEditor({ eventId }: Props) {
               className={`page-structure-preview-row page-structure-preview-row-${row.layout}`}
               aria-label={`Row ${i + 1} preview (${
                 row.layout === 'full' ? 'Full-Width' : '50-50'
-              })`}
+              })${row.defaultDisplay === 'hide' ? ', Default Display: Hide' : ''}`}
             >
               {row.layout === 'full' ? (
                 <div className="page-structure-preview-block">
-                  <span className="muted small">Row {i + 1}</span>
+                  <span className="muted small">
+                    Row {i + 1}
+                    {row.defaultDisplay === 'hide' && (
+                      <span className="page-structure-preview-hide-pill"> · Hide</span>
+                    )}
+                  </span>
                 </div>
               ) : (
                 <>
                   <div className="page-structure-preview-block">
-                    <span className="muted small">Row {i + 1} · A</span>
+                    <span className="muted small">
+                      Row {i + 1} · A
+                      {row.defaultDisplay === 'hide' && (
+                        <span className="page-structure-preview-hide-pill"> · Hide</span>
+                      )}
+                    </span>
                   </div>
                   <div className="page-structure-preview-block">
-                    <span className="muted small">Row {i + 1} · B</span>
+                    <span className="muted small">
+                      Row {i + 1} · B
+                      {row.defaultDisplay === 'hide' && (
+                        <span className="page-structure-preview-hide-pill"> · Hide</span>
+                      )}
+                    </span>
                   </div>
                 </>
               )}
