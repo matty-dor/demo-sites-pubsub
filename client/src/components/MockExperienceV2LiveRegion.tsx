@@ -9,7 +9,10 @@ import type {
   V2DynamicConfig,
   V2DynamicTargetSide,
 } from '../store/eventDynamicTargetsSlice'
-import type { PageStructureRow } from '../store/pageStructureSlice'
+import {
+  normalizePageStructureRow,
+  type PageStructureRow,
+} from '../store/pageStructureSlice'
 import type { StaticContent } from '../store/staticContentSlice'
 
 type Props = {
@@ -59,63 +62,87 @@ export function MockExperienceV2LiveRegion({
               No Page Structure saved for this event yet.
             </p>
           : rows.map((row, rowIdx) => {
+              const rowNorm = normalizePageStructureRow(row)
               const sides: V2DynamicTargetSide[] =
                 row.layout === 'full' ? [null] : ['A', 'B']
+
+              if (rowNorm.defaultDisplay === 'hide' && forceDefault) {
+                return null
+              }
+
+              const hideRow = rowNorm.defaultDisplay === 'hide'
+
+              const resolvedCells = sides.map((side) => {
+                const target = dynamicConfig?.targets.find(
+                  (t) => t.rowId === row.id && t.side === side,
+                )
+                const sb = staticBlockFor(staticContent, row.id, side)
+                const label = cellLabel(rowIdx, side)
+                const resolved = resolveV2Cell(
+                  target,
+                  hideRow ? undefined : sb,
+                  keyVal,
+                  label,
+                  {
+                    forceDefault,
+                  },
+                )
+                return { side, label, resolved }
+              })
+
+              if (hideRow && !forceDefault) {
+                const anyDynamicMatch = resolvedCells.some(
+                  (c) =>
+                    'source' in c.resolved && c.resolved.source === 'matched',
+                )
+                if (!anyDynamicMatch) return null
+              }
+
               return (
                 <div
                   key={row.id}
                   className={`page-structure-preview-row page-structure-preview-row-${row.layout} mock-experience-v2-row`}
                   aria-label={`Row ${rowIdx + 1} preview`}
                 >
-                  {sides.map((side) => {
-                    const target = dynamicConfig?.targets.find(
-                      (t) => t.rowId === row.id && t.side === side,
-                    )
-                    const sb = staticBlockFor(staticContent, row.id, side)
-                    const label = cellLabel(rowIdx, side)
-                    const resolved = resolveV2Cell(target, sb, keyVal, label, {
-                      forceDefault,
-                    })
-                    return (
-                      <div
-                        key={`${row.id}-${side ?? 'full'}`}
-                        className="page-structure-preview-block static-content-preview-block mock-experience-v2-cell"
-                      >
-                        <span
-                          className={`mock-experience-v2-cell-source mock-experience-v2-cell-source-${
-                            'source' in resolved ? resolved.source : 'default'
-                          }`}
-                          title={
-                            'source' in resolved && resolved.source === 'matched'
-                              ? 'Resolved from a matching dynamic target mapping'
-                              : 'Resolved from saved Static Content'
-                          }
-                        >
-                          {'source' in resolved && resolved.source === 'matched'
-                            ? 'Dynamic match'
-                            : 'Default'}
-                        </span>
-                        {resolved.kind === 'empty' ?
-                          <span className="muted small">
-                            {resolved.placeholder}
-                          </span>
-                        : resolved.kind === 'text' ?
-                          <span className="static-content-preview-text mock-experience-v2-cell-text">
-                            {resolved.text}
-                          </span>
-                        : resolved.kind === 'image' ?
-                          <img
-                            src={resolved.url}
-                            alt={label}
-                            className="static-content-preview-image mock-experience-v2-cell-image"
-                          />
-                        : <span className="muted small">
-                            Invalid image URL
-                          </span>
+                  {resolvedCells.map(({ side, label, resolved }) => (
+                    <div
+                      key={`${row.id}-${side ?? 'full'}`}
+                      className="page-structure-preview-block static-content-preview-block mock-experience-v2-cell"
+                    >
+                      <span
+                        className={`mock-experience-v2-cell-source mock-experience-v2-cell-source-${
+                          'source' in resolved ? resolved.source : 'default'
+                        }`}
+                        title={
+                          'source' in resolved && resolved.source === 'matched'
+                            ? 'Resolved from a matching dynamic target mapping'
+                            : 'Resolved from saved Static Content'
                         }
-                      </div>
-                    )
-                  })}
+                      >
+                        {'source' in resolved && resolved.source === 'matched'
+                          ? 'Dynamic match'
+                          : 'Default'}
+                      </span>
+                      {resolved.kind === 'empty' ?
+                        <span className="muted small">
+                          {resolved.placeholder}
+                        </span>
+                      : resolved.kind === 'text' ?
+                        <span className="static-content-preview-text mock-experience-v2-cell-text">
+                          {resolved.text}
+                        </span>
+                      : resolved.kind === 'image' ?
+                        <img
+                          src={resolved.url}
+                          alt={label}
+                          className="static-content-preview-image mock-experience-v2-cell-image"
+                        />
+                      : <span className="muted small">
+                          Invalid image URL
+                        </span>
+                      }
+                    </div>
+                  ))}
                 </div>
               )
             })
