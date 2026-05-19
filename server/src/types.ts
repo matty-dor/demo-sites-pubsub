@@ -37,13 +37,15 @@ export const mockEventSchema = z
   })
   .superRefine((data, ctx) => {
     const hasCustomerId = data.schema.some(
-      (n) => n.key === 'customer_id' && n.type === 'string',
+      (n) =>
+        n.key === 'customer_id' &&
+        (n.type === 'string' || n.type === 'number'),
     )
     if (!hasCustomerId) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message:
-          'Schema must include a root field named customer_id with type string',
+          'Schema must include a root field named customer_id with type string or number',
         path: ['schema'],
       })
     }

@@ -1,15 +1,29 @@
+import { CUSTOMER_ID_FIELD_TYPES } from '../lib/mockEventSchemaRules'
 import type { FieldType, SchemaNode } from '../types/schema'
 import { newSchemaNode } from '../types/schema'
+
+const ALL_FIELD_TYPES: FieldType[] = [
+  'string',
+  'number',
+  'boolean',
+  'date',
+  'timestamp',
+  'object',
+  'array',
+]
 
 function FieldTypeSelect({
   value,
   onChange,
   disabled,
+  allowedTypes,
 }: {
   value: FieldType
   onChange: (t: FieldType) => void
   disabled?: boolean
+  allowedTypes?: readonly FieldType[]
 }) {
+  const types = allowedTypes ?? ALL_FIELD_TYPES
   return (
     <select
       className="input-inline"
@@ -17,13 +31,11 @@ function FieldTypeSelect({
       onChange={(e) => onChange(e.target.value as FieldType)}
       disabled={disabled}
     >
-      <option value="string">string</option>
-      <option value="number">number</option>
-      <option value="boolean">boolean</option>
-      <option value="date">date</option>
-      <option value="timestamp">timestamp</option>
-      <option value="object">object</option>
-      <option value="array">array</option>
+      {types.map((t) => (
+        <option key={t} value={t}>
+          {t}
+        </option>
+      ))}
     </select>
   )
 }
@@ -72,7 +84,11 @@ function SchemaFieldEditor({
           aria-disabled={locked || undefined}
           title={locked ? 'Required field — cannot be renamed.' : undefined}
         />
-        <FieldTypeSelect value={node.type} onChange={setType} disabled={locked} />
+        <FieldTypeSelect
+          value={node.type}
+          onChange={setType}
+          allowedTypes={locked ? CUSTOMER_ID_FIELD_TYPES : undefined}
+        />
         {locked ? (
           <span className="muted small schema-field-locked-hint">Required</span>
         ) : (
