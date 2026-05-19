@@ -6,8 +6,12 @@ import type {
   StaticBlockContent,
   StaticContent,
 } from '../store/staticContentSlice'
-import { interpolateApiValue } from './apiValueTemplate'
-import { mappingRowMatches } from './ruleMatch'
+import { interpolateApiValues } from './apiValueTemplate'
+import {
+  firstActiveConditionValue,
+  mappingConditionsMatch,
+  resolvedValuesByPathSuffix,
+} from './mappingConditions'
 import { isValidHttpUrl } from './urlValidation'
 
 export type V2CellResolved =
@@ -68,7 +72,7 @@ function fromStaticBlock(
 /**
  * Resolve the rendered content for a single page-structure cell using v2 rules:
  *   1. If `forceDefault` is false and a dynamic target is configured for this cell, evaluate
- *      its mappings against `keyVal`; first match wins.
+ *      its mappings (all conditions per variation must match); first match wins.
  *   2. Otherwise (or if no mapping matches), fall back to the corresponding Static Content
  *      block.
  *   3. Otherwise return an empty placeholder using `cellLabel`.
@@ -76,22 +80,30 @@ function fromStaticBlock(
 export function resolveV2Cell(
   target: V2DynamicTarget | undefined,
   staticBlock: StaticBlockContent | undefined,
-  keyVal: unknown,
+  personalizationData: unknown,
   cellLabel: string,
   options?: ResolveV2CellOptions,
 ): V2CellResolved {
   const forceDefault = options?.forceDefault === true
   if (!forceDefault && target) {
     const match = target.staticMappings.find((m) =>
-      mappingRowMatches(keyVal, m.operator, m.value),
+      mappingConditionsMatch(personalizationData, m.conditions),
     )
     if (match && match.content.trim()) {
       const c = match.content.trim()
       if (match.contentType === 'text') {
+        const valuesBySuffix = resolvedValuesByPathSuffix(
+          personalizationData,
+          match.conditions,
+        )
+        const firstVal = firstActiveConditionValue(
+          personalizationData,
+          match.conditions,
+        )
         return {
           kind: 'text',
           source: 'matched',
-          text: interpolateApiValue(c, keyVal),
+          text: interpolateApiValues(c, valuesBySuffix, firstVal),
         }
       }
       if (!isValidHttpUrl(c)) return { kind: 'invalidImage', source: 'matched' }

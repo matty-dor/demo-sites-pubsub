@@ -2,8 +2,14 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   API_VALUE_TEMPLATE_HINT,
-  interpolateApiValue,
+  interpolateApiValues,
 } from '../lib/apiValueTemplate'
+import {
+  firstActiveConditionValue,
+  isConditionActive,
+  mappingConditionsMatch,
+  resolvedValuesByPathSuffix,
+} from '../lib/mappingConditions'
 import {
   fieldPathSuffixFromStored,
   normalizeRulesFieldPath,
@@ -13,12 +19,12 @@ import { getAtPath } from '../lib/path'
 import {
   COMPARISON_OPERATORS,
   type ComparisonOperator,
-  mappingRowMatches,
   OPERATOR_LABELS,
 } from '../lib/ruleMatch'
 import { isValidHttpUrl } from '../lib/urlValidation'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
 import {
+  emptyV2MappingCondition,
   emptyV2StaticMapping,
   newV2DynamicTarget,
   normalizeV2DynamicConfig,
@@ -26,6 +32,7 @@ import {
   type V2DynamicConfig,
   type V2DynamicTarget,
   type V2DynamicTargetSide,
+  type V2MappingCondition,
   type V2StaticContentType,
   type V2StaticMappingRow,
 } from '../store/eventDynamicTargetsSlice'
@@ -132,26 +139,37 @@ type ResolvedPreview =
 
 /**
  * Compute what to render for a single page-structure cell:
- * - First, evaluate the cell's dynamic mappings (if any) against the resolved key value;
- *   the first match wins. Matched text Content runs through {@link interpolateApiValue}
- *   so authors can embed `{{api_value}}` and have it replaced with the resolved API value.
+ * - First, evaluate the cell's dynamic mappings (if any); all conditions per variation must
+ *   match (AND). The first matching variation wins.
+ * - Matched text Content supports `{{api_value}}` and `{{api_value:path}}` tokens.
  * - Otherwise, fall back to the corresponding Static Content block (no interpolation).
  * - Otherwise, render an empty placeholder using `cellLabel`.
  */
 function resolvePreviewForCell(
   target: V2DynamicTarget | undefined,
   staticBlock: StaticBlockContent | undefined,
-  keyVal: unknown,
+  personalizationData: unknown,
   cellLabel: string,
 ): ResolvedPreview {
   if (target) {
     const match = target.staticMappings.find((m) =>
-      mappingRowMatches(keyVal, m.operator, m.value),
+      mappingConditionsMatch(personalizationData, m.conditions),
     )
     if (match && match.content.trim()) {
       const c = match.content.trim()
       if (match.contentType === 'text') {
-        return { kind: 'text', text: interpolateApiValue(c, keyVal) }
+        const valuesBySuffix = resolvedValuesByPathSuffix(
+          personalizationData,
+          match.conditions,
+        )
+        const firstVal = firstActiveConditionValue(
+          personalizationData,
+          match.conditions,
+        )
+        return {
+          kind: 'text',
+          text: interpolateApiValues(c, valuesBySuffix, firstVal),
+        }
       }
       if (!isValidHttpUrl(c)) return { kind: 'invalidImage' }
       return { kind: 'image', url: c }
@@ -195,7 +213,6 @@ export function DynamicContentV2Section({ eventId }: Props) {
   )
 
   const [showPersonalizationPeek, setShowPersonalizationPeek] = useState(false)
-  const [fieldPathSuffix, setFieldPathSuffix] = useState('')
   const [targets, setTargets] = useState<V2DynamicTarget[]>([])
   const [openTargetIds, setOpenTargetIds] = useState<Set<string>>(
     () => new Set(),
@@ -208,9 +225,6 @@ export function DynamicContentV2Section({ eventId }: Props) {
   // Hydrate from the persisted v2 config whenever we switch events or stored data updates.
   useEffect(() => {
     const normalized = normalizeV2DynamicConfig(stored)
-    setFieldPathSuffix(
-      stored ? fieldPathSuffixFromStored(normalized.fieldPath) : '',
-    )
     const reconciled = reconcileTargetsToStructure(
       normalized.targets,
       structureRows,
@@ -237,10 +251,23 @@ export function DynamicContentV2Section({ eventId }: Props) {
     [structureRows, targets],
   )
 
-  const fullFieldPath = normalizeRulesFieldPath(fieldPathSuffix)
-  const resolvedRoot = wrapPersonalizationProfileRoot(simData)
-  const keyVal = getAtPath(resolvedRoot, fullFieldPath)
-  const keyStr = keyVal === undefined || keyVal === null ? '' : String(keyVal)
+  const resolvedPathsPreview = useMemo(() => {
+    const paths = new Set<string>()
+    for (const t of targets) {
+      for (const m of t.staticMappings) {
+        for (const c of m.conditions) {
+          if (isConditionActive(c)) {
+            paths.add(normalizeRulesFieldPath(c.fieldPath))
+          }
+        }
+      }
+    }
+    const root = wrapPersonalizationProfileRoot(simData)
+    return [...paths].sort().map((path) => ({
+      path,
+      value: getAtPath(root, path),
+    }))
+  }, [targets, simData])
 
   function setMapping(
     targetId: string,
@@ -287,6 +314,83 @@ export function DynamicContentV2Section({ eventId }: Props) {
     )
   }
 
+  function setCondition(
+    targetId: string,
+    mappingIdx: number,
+    conditionIdx: number,
+    patch: Partial<V2MappingCondition>,
+  ) {
+    setTargets((prev) =>
+      prev.map((t) => {
+        if (t.id !== targetId) return t
+        return {
+          ...t,
+          staticMappings: t.staticMappings.map((m, mi) => {
+            if (mi !== mappingIdx) return m
+            return {
+              ...m,
+              conditions: m.conditions.map((c, ci) => {
+                if (ci !== conditionIdx) return c
+                const next = { ...c, ...patch }
+                if (patch.fieldPath !== undefined) {
+                  next.fieldPath = normalizeRulesFieldPath(patch.fieldPath)
+                }
+                return next
+              }),
+            }
+          }),
+        }
+      }),
+    )
+  }
+
+  function addCondition(targetId: string, mappingIdx: number) {
+    setTargets((prev) =>
+      prev.map((t) => {
+        if (t.id !== targetId) return t
+        return {
+          ...t,
+          staticMappings: t.staticMappings.map((m, mi) => {
+            if (mi !== mappingIdx) return m
+            const seed =
+              m.conditions[0]?.fieldPath ??
+              emptyV2MappingCondition().fieldPath
+            return {
+              ...m,
+              conditions: [
+                ...m.conditions,
+                { ...emptyV2MappingCondition(), fieldPath: seed },
+              ],
+            }
+          }),
+        }
+      }),
+    )
+  }
+
+  function removeCondition(
+    targetId: string,
+    mappingIdx: number,
+    conditionIdx: number,
+  ) {
+    setTargets((prev) =>
+      prev.map((t) => {
+        if (t.id !== targetId) return t
+        return {
+          ...t,
+          staticMappings: t.staticMappings.map((m, mi) => {
+            if (mi !== mappingIdx) return m
+            if (m.conditions.length <= 1) return m
+            return {
+              ...m,
+              conditions: m.conditions.filter((_, ci) => ci !== conditionIdx),
+            }
+          }),
+        }
+      }),
+    )
+  }
+
   function removeTarget(targetId: string) {
     setTargets((prev) => prev.filter((t) => t.id !== targetId))
     setOpenTargetIds((prev) => {
@@ -311,10 +415,6 @@ export function DynamicContentV2Section({ eventId }: Props) {
   }
 
   function validateBeforeSave(): string | null {
-    const suf = fieldPathSuffix.trim().replace(/^\.+/, '')
-    if (!suf) {
-      return 'Field path must include at least one segment after data. (e.g. entity_id or audiences.31325.phone)'
-    }
     for (let ti = 0; ti < targets.length; ti++) {
       const t = targets[ti]
       for (let mi = 0; mi < t.staticMappings.length; mi++) {
@@ -340,13 +440,7 @@ export function DynamicContentV2Section({ eventId }: Props) {
     }
     const config: V2DynamicConfig = {
       contentSourceMode: 'static',
-      fieldPath: normalizeRulesFieldPath(fieldPathSuffix),
-      targets: targets.map((t) => ({
-        ...t,
-        staticMappings: t.staticMappings.filter(
-          (m) => m.value.trim() || m.content.trim(),
-        ),
-      })),
+      targets,
     }
     dispatch(setDynamicTargetsForEvent({ eventId, config }))
     setSaveFlash(true)
@@ -361,9 +455,10 @@ export function DynamicContentV2Section({ eventId }: Props) {
         </div>
       )}
 
-      <label className="stack-label">
-        <div className="stack-label-row field-path-label-row">
-          <span>Field path to target API Response value</span>
+      <div className="stack-label-row field-path-label-row v2-dynamic-peek-row">
+        <span className="muted small">
+          Each content variation can require one or more field paths (all must match).
+        </span>
           <button
             type="button"
             className="link-button field-path-peek-toggle"
@@ -392,23 +487,6 @@ export function DynamicContentV2Section({ eventId }: Props) {
             }
           </div>
         )}
-        <div className="panel-title-field">
-          <span
-            className="panel-title-prefix"
-            title="Always under the response data object"
-          >
-            data.
-          </span>
-          <input
-            className="input panel-title-suffix"
-            value={fieldPathSuffix}
-            onChange={(e) => setFieldPathSuffix(e.target.value)}
-            placeholder="Refer to a Personalization API response to insert the proper field path."
-            aria-label="Dot path under data (after data. prefix)"
-            autoComplete="off"
-          />
-        </div>
-      </label>
 
       <h3 className="dynamic-rules-subheading">Content Variations</h3>
 
@@ -505,41 +583,99 @@ export function DynamicContentV2Section({ eventId }: Props) {
                                 Remove
                               </button>
                             </div>
-                            <div className="mapping-row-static dynamic-target-mapping-grid">
-                              <label className="stack-label mapping-cell">
-                                <span className="muted small">Operator</span>
-                                <select
-                                  className="input"
-                                  value={m.operator}
-                                  onChange={(e) =>
-                                    setMapping(target.id, mi, {
-                                      operator: e.target
-                                        .value as ComparisonOperator,
-                                    })
-                                  }
+                            <div className="v2-mapping-conditions">
+                              <p className="muted small v2-mapping-conditions-lede">
+                                When <strong>all</strong> of the following match:
+                              </p>
+                              {m.conditions.map((cond, ci) => (
+                                <div
+                                  key={ci}
+                                  className="v2-mapping-condition-row mapping-row-static dynamic-target-mapping-grid"
                                 >
-                                  {COMPARISON_OPERATORS.map((op) => (
-                                    <option key={op} value={op}>
-                                      {OPERATOR_LABELS[op]}
-                                    </option>
-                                  ))}
-                                </select>
-                              </label>
-                              <label className="stack-label mapping-cell">
-                                <span className="muted small">
-                                  Example API Response Value
-                                </span>
-                                <input
-                                  className="input"
-                                  placeholder="Compare to this value (e.g. luxury or 10)"
-                                  value={m.value}
-                                  onChange={(e) =>
-                                    setMapping(target.id, mi, {
-                                      value: e.target.value,
-                                    })
-                                  }
-                                />
-                              </label>
+                                  <label className="stack-label mapping-cell v2-condition-path-cell">
+                                    <span className="muted small">Field path</span>
+                                    <div className="panel-title-field">
+                                      <span
+                                        className="panel-title-prefix"
+                                        title="Always under the response data object"
+                                      >
+                                        data.
+                                      </span>
+                                      <input
+                                        className="input panel-title-suffix"
+                                        value={fieldPathSuffixFromStored(
+                                          cond.fieldPath,
+                                        )}
+                                        onChange={(e) =>
+                                          setCondition(target.id, mi, ci, {
+                                            fieldPath: e.target.value,
+                                          })
+                                        }
+                                        placeholder="segment or tier"
+                                        aria-label={`Condition ${ci + 1} path under data`}
+                                        autoComplete="off"
+                                      />
+                                    </div>
+                                  </label>
+                                  <label className="stack-label mapping-cell">
+                                    <span className="muted small">Operator</span>
+                                    <select
+                                      className="input"
+                                      value={cond.operator}
+                                      onChange={(e) =>
+                                        setCondition(target.id, mi, ci, {
+                                          operator: e.target
+                                            .value as ComparisonOperator,
+                                        })
+                                      }
+                                    >
+                                      {COMPARISON_OPERATORS.map((op) => (
+                                        <option key={op} value={op}>
+                                          {OPERATOR_LABELS[op]}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </label>
+                                  <label className="stack-label mapping-cell">
+                                    <span className="muted small">
+                                      Example API Response Value
+                                    </span>
+                                    <input
+                                      className="input"
+                                      placeholder="Compare to this value (e.g. luxury or 10)"
+                                      value={cond.value}
+                                      onChange={(e) =>
+                                        setCondition(target.id, mi, ci, {
+                                          value: e.target.value,
+                                        })
+                                      }
+                                    />
+                                  </label>
+                                  {m.conditions.length > 1 && (
+                                    <div className="v2-condition-remove-cell">
+                                      <button
+                                        type="button"
+                                        className="btn btn-secondary btn-small"
+                                        onClick={() =>
+                                          removeCondition(target.id, mi, ci)
+                                        }
+                                        aria-label={`Remove condition ${ci + 1}`}
+                                      >
+                                        Remove condition
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                              <button
+                                type="button"
+                                className="btn btn-secondary btn-small"
+                                onClick={() => addCondition(target.id, mi)}
+                              >
+                                Add condition
+                              </button>
+                            </div>
+                            <div className="mapping-row-static dynamic-target-mapping-grid v2-variation-content-grid">
                               <label className="stack-label mapping-cell">
                                 <span className="muted small">
                                   Content Type
@@ -656,10 +792,23 @@ export function DynamicContentV2Section({ eventId }: Props) {
 
               <div className="dynamic-targets-preview">
                 <div className="muted small">{previewHint}</div>
-                <div className="muted small">
-                  Resolved <code>{fullFieldPath}</code> ={' '}
-                  <code>{keyStr || '(empty)'}</code>
-                </div>
+                {resolvedPathsPreview.length > 0 ?
+                  <ul className="v2-resolved-paths-preview muted small">
+                    {resolvedPathsPreview.map(({ path, value }) => (
+                      <li key={path}>
+                        Resolved <code>{path}</code> ={' '}
+                        <code>
+                          {value === undefined || value === null ?
+                            '(empty)'
+                          : String(value)}
+                        </code>
+                      </li>
+                    ))}
+                  </ul>
+                : <div className="muted small">
+                    Add field paths on a variation to see resolved values here.
+                  </div>
+                }
                 {structureRows.map((row, rowIdx) => {
                   const slotsForRow: V2DynamicTargetSide[] =
                     row.layout === 'full' ? [null] : ['A', 'B']
@@ -681,7 +830,7 @@ export function DynamicContentV2Section({ eventId }: Props) {
                         const resolved = resolvePreviewForCell(
                           target,
                           sb,
-                          keyVal,
+                          simData,
                           cellLabel,
                         )
                         return (

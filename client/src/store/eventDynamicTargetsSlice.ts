@@ -17,9 +17,15 @@ export type V2ContentSourceMode = 'static' | 'flexible'
 
 export type V2StaticContentType = 'text' | 'imageUrl'
 
-export type V2StaticMappingRow = {
+export type V2MappingCondition = {
+  fieldPath: string
   operator: ComparisonOperator
   value: string
+}
+
+export type V2StaticMappingRow = {
+  /** All conditions must match (AND). Legacy rows migrate into a single condition. */
+  conditions: V2MappingCondition[]
   contentType: V2StaticContentType
   content: string
 }
@@ -36,19 +42,33 @@ export type V2DynamicTarget = {
 
 export type V2DynamicConfig = {
   contentSourceMode: V2ContentSourceMode
-  /** Single Personalization-API field path applied to every target's mappings. */
-  fieldPath: string
+  /**
+   * Deprecated: migrated into each mapping row’s `conditions`. Ignored at runtime after
+   * normalization; kept so older persisted v2 configs still migrate cleanly.
+   */
+  fieldPath?: string
   targets: V2DynamicTarget[]
 }
 
+export function emptyV2MappingCondition(): V2MappingCondition {
+  return {
+    fieldPath: normalizeRulesFieldPath('segment'),
+    operator: 'eq',
+    value: '',
+  }
+}
+
 export function emptyV2StaticMapping(): V2StaticMappingRow {
-  return { operator: 'eq', value: '', contentType: 'text', content: '' }
+  return {
+    conditions: [emptyV2MappingCondition()],
+    contentType: 'text',
+    content: '',
+  }
 }
 
 export function createDefaultV2DynamicConfig(): V2DynamicConfig {
   return {
     contentSourceMode: 'static',
-    fieldPath: normalizeRulesFieldPath('segment'),
     targets: [],
   }
 }
@@ -72,11 +92,72 @@ export function newV2DynamicTarget(
   }
 }
 
+function normalizeV2MappingCondition(
+  raw: Partial<V2MappingCondition> | undefined,
+  legacyFieldPath: string,
+): V2MappingCondition {
+  return {
+    fieldPath: normalizeRulesFieldPath(
+      raw?.fieldPath && raw.fieldPath.trim() ? raw.fieldPath : legacyFieldPath,
+    ),
+    operator: normalizeComparisonOperator(raw?.operator),
+    value: typeof raw?.value === 'string' ? raw.value : '',
+  }
+}
+
+function normalizeV2StaticMappingRow(
+  raw:
+    | (Partial<V2StaticMappingRow> & {
+        operator?: ComparisonOperator
+        value?: string
+      })
+    | undefined,
+  legacyFieldPath: string,
+): V2StaticMappingRow {
+  const contentType = raw?.contentType === 'imageUrl' ? 'imageUrl' : 'text'
+  const content = typeof raw?.content === 'string' ? raw.content : ''
+
+  if (Array.isArray(raw?.conditions) && raw.conditions.length > 0) {
+    return {
+      conditions: raw.conditions.map((c) =>
+        normalizeV2MappingCondition(c, legacyFieldPath),
+      ),
+      contentType,
+      content,
+    }
+  }
+
+  if (raw && ('operator' in raw || 'value' in raw)) {
+    return {
+      conditions: [
+        normalizeV2MappingCondition(
+          {
+            fieldPath: legacyFieldPath,
+            operator: raw.operator,
+            value: raw.value,
+          },
+          legacyFieldPath,
+        ),
+      ],
+      contentType,
+      content,
+    }
+  }
+
+  return {
+    conditions: [emptyV2MappingCondition()],
+    contentType,
+    content,
+  }
+}
+
 export function normalizeV2DynamicConfig(
   raw: Partial<V2DynamicConfig> | undefined,
 ): V2DynamicConfig {
   const base = createDefaultV2DynamicConfig()
   if (!raw || typeof raw !== 'object') return base
+
+  const legacyFieldPath = normalizeRulesFieldPath(raw.fieldPath)
 
   const targets: V2DynamicTarget[] = Array.isArray(raw.targets)
     ? raw.targets.map((t) => ({
@@ -84,12 +165,9 @@ export function normalizeV2DynamicConfig(
         rowId: typeof t?.rowId === 'string' ? t.rowId : '',
         side: t?.side === 'A' || t?.side === 'B' ? t.side : null,
         staticMappings: Array.isArray(t?.staticMappings)
-          ? t.staticMappings.map((m) => ({
-              operator: normalizeComparisonOperator(m?.operator),
-              value: typeof m?.value === 'string' ? m.value : '',
-              contentType: m?.contentType === 'imageUrl' ? 'imageUrl' : 'text',
-              content: typeof m?.content === 'string' ? m.content : '',
-            }))
+          ? t.staticMappings.map((m) =>
+              normalizeV2StaticMappingRow(m, legacyFieldPath),
+            )
           : [],
       }))
     : []
@@ -97,7 +175,6 @@ export function normalizeV2DynamicConfig(
   return {
     contentSourceMode:
       raw.contentSourceMode === 'flexible' ? 'flexible' : 'static',
-    fieldPath: normalizeRulesFieldPath(raw.fieldPath),
     targets,
   }
 }

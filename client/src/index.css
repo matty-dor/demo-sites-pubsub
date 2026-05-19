@@ -1460,6 +1460,55 @@ a {
   grid-template-columns: minmax(9rem, 11rem) 1fr minmax(9rem, 12rem);
 }
 
+.v2-dynamic-peek-row {
+  margin-bottom: 0.5rem;
+}
+
+.v2-mapping-conditions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
+.v2-mapping-conditions-lede {
+  margin: 0;
+}
+
+.v2-mapping-condition-row {
+  padding-bottom: 0.5rem;
+  border-bottom: 1px dashed var(--border);
+}
+
+.v2-mapping-condition-row:last-of-type {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.v2-condition-path-cell {
+  grid-column: 1 / -1;
+}
+
+.v2-condition-remove-cell {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.v2-variation-content-grid {
+  margin-top: 0.25rem;
+}
+
+.v2-resolved-paths-preview {
+  margin: 0;
+  padding-left: 1.1rem;
+  list-style: disc;
+}
+
 .dynamic-target-content-cell {
   grid-column: 1 / -1;
 }

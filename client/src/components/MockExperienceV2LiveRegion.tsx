@@ -1,9 +1,4 @@
 import { useMemo } from 'react'
-import { getAtPath } from '../lib/path'
-import {
-  normalizeRulesFieldPath,
-  wrapPersonalizationProfileRoot,
-} from '../lib/personalizationFieldPath'
 import { resolveV2Cell, staticBlockFor } from '../lib/experienceResolveV2'
 import type {
   V2DynamicConfig,
@@ -19,7 +14,7 @@ type Props = {
   rows: PageStructureRow[]
   staticContent: StaticContent | undefined
   dynamicConfig: V2DynamicConfig | undefined
-  /** Resolved Personalization value at the configured field path; omit when showing default-only view. */
+  /** Profile object from `personalizationResponse.data`. */
   personalizationData: unknown
   loading: boolean
   forceDefault: boolean
@@ -33,16 +28,10 @@ export function MockExperienceV2LiveRegion({
   loading,
   forceDefault,
 }: Props) {
-  const fullFieldPath =
-    dynamicConfig ? normalizeRulesFieldPath(dynamicConfig.fieldPath) : ''
-  const keyVal = useMemo(() => {
-    if (!fullFieldPath) return undefined
+  const profileData = useMemo(() => {
     if (forceDefault) return undefined
-    return getAtPath(
-      wrapPersonalizationProfileRoot(personalizationData),
-      fullFieldPath,
-    )
-  }, [fullFieldPath, personalizationData, forceDefault])
+    return personalizationData
+  }, [personalizationData, forceDefault])
 
   const cellLabel = (rowIdx: number, side: V2DynamicTargetSide) =>
     side === null
@@ -81,7 +70,7 @@ export function MockExperienceV2LiveRegion({
                 const resolved = resolveV2Cell(
                   target,
                   hideRow ? undefined : sb,
-                  keyVal,
+                  profileData,
                   label,
                   {
                     forceDefault,
