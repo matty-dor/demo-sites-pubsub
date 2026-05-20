@@ -20,6 +20,7 @@ import {
   COMPARISON_OPERATORS,
   type ComparisonOperator,
   OPERATOR_LABELS,
+  operatorUsesExampleThreshold,
 } from '../lib/ruleMatch'
 import { isValidHttpUrl } from '../lib/urlValidation'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
@@ -642,8 +643,19 @@ export function DynamicContentV2Section({ eventId }: Props) {
                                     </span>
                                     <input
                                       className="input"
-                                      placeholder="Compare to this value (e.g. luxury or 10)"
+                                      placeholder={
+                                        operatorUsesExampleThreshold(cond.operator)
+                                          ? 'Compare to this value (e.g. luxury or 10)'
+                                          : 'Not used for Is null / Is not null'
+                                      }
                                       value={cond.value}
+                                      disabled={
+                                        !operatorUsesExampleThreshold(cond.operator)
+                                      }
+                                      aria-disabled={
+                                        !operatorUsesExampleThreshold(cond.operator) ||
+                                        undefined
+                                      }
                                       onChange={(e) =>
                                         setCondition(target.id, mi, ci, {
                                           value: e.target.value,

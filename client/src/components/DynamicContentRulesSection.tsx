@@ -15,6 +15,7 @@ import {
   type ComparisonOperator,
   mappingRowMatches,
   OPERATOR_LABELS,
+  operatorUsesExampleThreshold,
 } from '../lib/ruleMatch'
 import { isValidHttpUrl } from '../lib/urlValidation'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
@@ -397,8 +398,16 @@ export function DynamicContentRulesSection({ eventId, eventName }: Props) {
                     <span className="muted small">Example API Response Value</span>
                     <input
                       className="input"
-                      placeholder="Compare to this value (e.g. luxury or 10)"
+                      placeholder={
+                        operatorUsesExampleThreshold(m.operator)
+                          ? 'Compare to this value (e.g. luxury or 10)'
+                          : 'Not used for Is null / Is not null'
+                      }
                       value={m.value}
+                      disabled={!operatorUsesExampleThreshold(m.operator)}
+                      aria-disabled={
+                        !operatorUsesExampleThreshold(m.operator) || undefined
+                      }
                       onChange={(e) => {
                         const next = staticMappings.slice()
                         next[i] = { ...next[i], value: e.target.value }
@@ -496,8 +505,16 @@ export function DynamicContentRulesSection({ eventId, eventName }: Props) {
                   <span className="muted small">Example API Response Value</span>
                   <input
                     className="input"
-                    placeholder="Compare to this value"
+                    placeholder={
+                      operatorUsesExampleThreshold(m.operator)
+                        ? 'Compare to this value'
+                        : 'Not used for Is null / Is not null'
+                    }
                     value={m.value}
+                    disabled={!operatorUsesExampleThreshold(m.operator)}
+                    aria-disabled={
+                      !operatorUsesExampleThreshold(m.operator) || undefined
+                    }
                     onChange={(e) => {
                       const next = dynamicMappings.slice()
                       next[i] = { ...next[i], value: e.target.value }

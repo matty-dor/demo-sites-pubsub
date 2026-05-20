@@ -1,4 +1,12 @@
-export type ComparisonOperator = 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte'
+export type ComparisonOperator =
+  | 'eq'
+  | 'neq'
+  | 'gt'
+  | 'lt'
+  | 'gte'
+  | 'lte'
+  | 'is_null'
+  | 'is_not_null'
 
 export const COMPARISON_OPERATORS: ComparisonOperator[] = [
   'eq',
@@ -7,6 +15,8 @@ export const COMPARISON_OPERATORS: ComparisonOperator[] = [
   'gte',
   'lte',
   'neq',
+  'is_null',
+  'is_not_null',
 ]
 
 export const OPERATOR_LABELS: Record<ComparisonOperator, string> = {
@@ -16,6 +26,18 @@ export const OPERATOR_LABELS: Record<ComparisonOperator, string> = {
   gte: 'Greater than or equal to',
   lte: 'Less than or equal to',
   neq: 'Not equal to',
+  is_null: 'Is null',
+  is_not_null: 'Is not null',
+}
+
+/** True when the path value is missing (`undefined`) or JSON `null`. */
+export function isNullishResolved(resolved: unknown): boolean {
+  return resolved === undefined || resolved === null
+}
+
+/** Example API response value is ignored for existence-style operators. */
+export function operatorUsesExampleThreshold(operator: ComparisonOperator): boolean {
+  return operator !== 'is_null' && operator !== 'is_not_null'
 }
 
 export function normalizeComparisonOperator(raw: string | undefined): ComparisonOperator {
@@ -34,6 +56,9 @@ export function mappingRowMatches(
   operator: ComparisonOperator,
   threshold: string,
 ): boolean {
+  if (operator === 'is_null') return isNullishResolved(resolved)
+  if (operator === 'is_not_null') return !isNullishResolved(resolved)
+
   const t = threshold.trim()
   if (t === '' && operator !== 'eq' && operator !== 'neq') return false
   return compareResolvedToThreshold(resolved, operator, threshold)
@@ -44,6 +69,9 @@ export function compareResolvedToThreshold(
   operator: ComparisonOperator,
   threshold: string,
 ): boolean {
+  if (operator === 'is_null') return isNullishResolved(resolved)
+  if (operator === 'is_not_null') return !isNullishResolved(resolved)
+
   const t = threshold.trim()
   const rStr =
     resolved === undefined || resolved === null ? '' : String(resolved).trim()
