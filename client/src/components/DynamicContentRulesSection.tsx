@@ -10,12 +10,12 @@ import {
   wrapPersonalizationProfileRoot,
 } from '../lib/personalizationFieldPath'
 import { getAtPath } from '../lib/path'
+import { ConditionOperatorValueField } from './ConditionOperatorValueField'
 import {
   COMPARISON_OPERATORS,
   type ComparisonOperator,
   mappingRowMatches,
   OPERATOR_LABELS,
-  operatorUsesExampleThreshold,
 } from '../lib/ruleMatch'
 import { isValidHttpUrl } from '../lib/urlValidation'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
@@ -394,27 +394,15 @@ export function DynamicContentRulesSection({ eventId, eventName }: Props) {
                       ))}
                     </select>
                   </label>
-                  <label className="stack-label mapping-cell">
-                    <span className="muted small">Example API Response Value</span>
-                    <input
-                      className="input"
-                      placeholder={
-                        operatorUsesExampleThreshold(m.operator)
-                          ? 'Compare to this value (e.g. luxury or 10)'
-                          : 'Not used for Is null / Is not null'
-                      }
-                      value={m.value}
-                      disabled={!operatorUsesExampleThreshold(m.operator)}
-                      aria-disabled={
-                        !operatorUsesExampleThreshold(m.operator) || undefined
-                      }
-                      onChange={(e) => {
-                        const next = staticMappings.slice()
-                        next[i] = { ...next[i], value: e.target.value }
-                        setStaticMappings(next)
-                      }}
-                    />
-                  </label>
+                  <ConditionOperatorValueField
+                    operator={m.operator}
+                    value={m.value}
+                    onChange={(value) => {
+                      const next = staticMappings.slice()
+                      next[i] = { ...next[i], value }
+                      setStaticMappings(next)
+                    }}
+                  />
                   <label className="stack-label mapping-cell">
                     <span className="muted small">Content Type</span>
                     <select
@@ -501,27 +489,16 @@ export function DynamicContentRulesSection({ eventId, eventName }: Props) {
                     ))}
                   </select>
                 </label>
-                <label className="stack-label mapping-cell">
-                  <span className="muted small">Example API Response Value</span>
-                  <input
-                    className="input"
-                    placeholder={
-                      operatorUsesExampleThreshold(m.operator)
-                        ? 'Compare to this value'
-                        : 'Not used for Is null / Is not null'
-                    }
-                    value={m.value}
-                    disabled={!operatorUsesExampleThreshold(m.operator)}
-                    aria-disabled={
-                      !operatorUsesExampleThreshold(m.operator) || undefined
-                    }
-                    onChange={(e) => {
-                      const next = dynamicMappings.slice()
-                      next[i] = { ...next[i], value: e.target.value }
-                      setDynamicMappings(next)
-                    }}
-                  />
-                </label>
+                <ConditionOperatorValueField
+                  operator={m.operator}
+                  value={m.value}
+                  compact
+                  onChange={(value) => {
+                    const next = dynamicMappings.slice()
+                    next[i] = { ...next[i], value }
+                    setDynamicMappings(next)
+                  }}
+                />
                 <label className="stack-label mapping-cell">
                   <span className="muted small">Image URL</span>
                   <input

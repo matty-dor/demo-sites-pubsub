@@ -1509,6 +1509,22 @@ a {
   list-style: disc;
 }
 
+.condition-threshold-days-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.condition-threshold-days-row .input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.condition-threshold-days-suffix {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .dynamic-target-content-cell {
   grid-column: 1 / -1;
 }

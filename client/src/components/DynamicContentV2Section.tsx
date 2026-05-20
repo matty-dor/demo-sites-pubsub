@@ -16,11 +16,11 @@ import {
   wrapPersonalizationProfileRoot,
 } from '../lib/personalizationFieldPath'
 import { getAtPath } from '../lib/path'
+import { ConditionOperatorValueField } from './ConditionOperatorValueField'
 import {
   COMPARISON_OPERATORS,
   type ComparisonOperator,
   OPERATOR_LABELS,
-  operatorUsesExampleThreshold,
 } from '../lib/ruleMatch'
 import { isValidHttpUrl } from '../lib/urlValidation'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
@@ -637,32 +637,13 @@ export function DynamicContentV2Section({ eventId }: Props) {
                                       ))}
                                     </select>
                                   </label>
-                                  <label className="stack-label mapping-cell">
-                                    <span className="muted small">
-                                      Example API Response Value
-                                    </span>
-                                    <input
-                                      className="input"
-                                      placeholder={
-                                        operatorUsesExampleThreshold(cond.operator)
-                                          ? 'Compare to this value (e.g. luxury or 10)'
-                                          : 'Not used for Is null / Is not null'
-                                      }
-                                      value={cond.value}
-                                      disabled={
-                                        !operatorUsesExampleThreshold(cond.operator)
-                                      }
-                                      aria-disabled={
-                                        !operatorUsesExampleThreshold(cond.operator) ||
-                                        undefined
-                                      }
-                                      onChange={(e) =>
-                                        setCondition(target.id, mi, ci, {
-                                          value: e.target.value,
-                                        })
-                                      }
-                                    />
-                                  </label>
+                                  <ConditionOperatorValueField
+                                    operator={cond.operator}
+                                    value={cond.value}
+                                    onChange={(value) =>
+                                      setCondition(target.id, mi, ci, { value })
+                                    }
+                                  />
                                   {m.conditions.length > 1 && (
                                     <div className="v2-condition-remove-cell">
                                       <button
