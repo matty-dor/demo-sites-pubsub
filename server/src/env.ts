@@ -26,6 +26,10 @@ export const env = {
   /** Path appended to base with {{customerId}} replaced (encodeURIComponent). Example: v1/users/{{customerId}}/traits */
   personalizationPathTemplate: optional('PERSONALIZATION_API_PATH_TEMPLATE'),
 
+  growthloopApiBaseUrl: optional('GROWTHLOOP_API_BASE_URL'),
+  growthloopApiToken: optional('GROWTHLOOP_API_TOKEN'),
+  growthloopApiAccessKey: optional('GROWTHLOOP_API_ACCESS_KEY'),
+
   kafkaBrokers: optional('KAFKA_BROKERS'),
   kafkaTopic: optional('KAFKA_TOPIC'),
   kafkaUsername: optional('KAFKA_USERNAME'),

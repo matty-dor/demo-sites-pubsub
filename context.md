@@ -27,10 +27,11 @@ A **GrowthLoop-style PoC demo**: mock events (schemas + payloads), optional publ
 - **Trigger press feedback:** Event and Experiences cards use class **`mock-event-trigger-btn`** on **Trigger … Event** (and Experiences v2 **Refresh** / **Reset** primary buttons) with **`:active`** invert styling (`index.css`: accent fill → dark `#0b1020` background with accent text/border; per-card **`--event-accent`** on `.mock-experience-card` / `.mock-event-card`).
 - After **successful** publish, **Refresh Experience** can appear (see below).
 
-### Dynamic Content Rules (`client/src/components/DynamicContentRulesSection.tsx`)
+### Dynamic Content Rules — v1 (`client/src/components/DynamicContentRulesSection.tsx`)
 
-- Static vs dynamic content modes; **field path** uses a fixed **`data.`** prefix in the UI (user types the remainder); stored paths always start with **`data.`** and resolve against `{ data: profilePayload }` (`personalizationFieldPath.ts`, `normalizeRulesFieldPath` in `eventDynamicRulesSlice`).
-- Mapping rows include an **Operator** (equals, gt, lt, gte, lte, not equal) and **Example API Response Value** as compare threshold; first matching row wins.
+- Static vs dynamic content modes; **one global field path** per event (fixed **`data.`** prefix in the UI; user types the remainder); stored paths always start with **`data.`** and resolve against `{ data: profilePayload }` (`personalizationFieldPath.ts`, `normalizeRulesFieldPath` in `eventDynamicRulesSlice`).
+- Mapping rows include an **Operator** and threshold value; first matching row wins. Operators (see **Condition operators** below) apply to v1 and v2; v1 still uses a single shared field path per event.
+- Threshold UI: **`ConditionOperatorValueField`** — label switches between **Example API Response Value**, **Days**, or disabled for null checks (`operatorThresholdKind` in `ruleMatch.ts`).
 - Preview on the Events page uses the **simulated** personalization payload from Redux (`simulator` slice).
 
 ### Experiences page (`client/src/pages/MockContentPage.tsx`)
@@ -57,9 +58,10 @@ A **GrowthLoop-style PoC demo**: mock events (schemas + payloads), optional publ
 
 ### Required `customer_id` on event schemas
 
-- **Create event** (`CreateMockEventPage`): the editor seeds **two rows** — a **locked** `customer_id` string (key + type read-only, no Remove button, **Required** pill) and one empty placeholder row. Save is blocked unless the schema still includes the customer_id row, no field key is empty, and no other event has the same name. (`schemaHasRequiredCustomerId`, `schemaHasEmptyKey`, `LOCKED_ROOT_KEYS`, `createInitialEventSchema` in `mockEventSchemaRules.ts`.)
-- **Edit event** (`EditMockEventPage`): legacy events without `customer_id` get the locked row auto-prepended via **`withLockedCustomerIdRow`**. Save dispatches `updateMockEvent` (or `PATCH /api/mock-events/:id`) and realigns the stored payload through **`alignPayloadToMockSchema`**. A persistent **`banner-warning`** explains that schema changes may diverge from the registered GrowthLoop schema and prompts re-registration.
-- **Server** (`server/src/types.ts`): **`mockEventSchema`** uses **`.superRefine`** so both **`POST`** and **`PATCH`** `/api/mock-events` reject schemas without the root `customer_id` string (parity with client).
+- **Create event** (`CreateMockEventPage`): the editor seeds **two rows** — a **locked** `customer_id` row (key read-only, no Remove, **Required** pill; **type** selectable **string** or **number** only) and one empty placeholder row. Save is blocked unless the schema still includes `customer_id` as string or number, no field key is empty, and no other event has the same name. (`schemaHasRequiredCustomerId`, `isValidCustomerIdSchemaField`, `CUSTOMER_ID_FIELD_TYPES`, `LOCKED_ROOT_KEYS`, `createInitialEventSchema` in `mockEventSchemaRules.ts`.)
+- **Edit event** (`EditMockEventPage`): legacy events without a valid `customer_id` get the locked row auto-prepended or normalized via **`withLockedCustomerIdRow`** (invalid types on existing `customer_id` coerced to **string**). Save dispatches `updateMockEvent` (or `PATCH /api/mock-events/:id`) and realigns the stored payload through **`alignPayloadToMockSchema`**. A persistent **`banner-warning`** explains that schema changes may diverge from the registered GrowthLoop schema and prompts re-registration.
+- **Server** (`server/src/types.ts`): **`mockEventSchema`** **`.superRefine`** requires root **`customer_id`** with type **string or number** (parity with client).
+- **`extractCustomerIdFromPayload`** coerces string or number payload values to a string for Personalization refresh.
 
 ### Vercel vs Fastify env split
 
@@ -96,9 +98,21 @@ A **GrowthLoop-style PoC demo**: mock events (schemas + payloads), optional publ
 - **"Content" wrapper on Events v2:** `DynamicContentRulesSection` renders one v1 `<details>` (existing form) when `scopeId === 'v1'`. When `scopeId === 'v2'`, it renders a `Content` `<details>` containing three nested collapsibles: **Page Structure** (`PageStructureEditor`), **Static Content** (`StaticContentEditor`), and **Dynamic Content** (`DynamicContentV2Section`). The legacy v1 inner body is no longer rendered for v2.
 - **Page Structure (`pageStructureSlice` + `PageStructureEditor`):** rows are `{ id, layout: 'full' | 'half-half', defaultDisplay: 'show' | 'hide' }` (`PageStructureRowLayout`, `PageStructureRowDefaultDisplay`; `normalizePageStructureRow` backfills missing `defaultDisplay` as `'show'`). Editor uses a 1fr/2fr grid — left controls (Edit / Save / Cancel + per-row **Full-Width / 50-50** radios + **Default Display** `<select>` Show/Hide + Add Another Row + Remove) and right preview (`page-structure-preview-row-*`; Hide rows show a small **· Hide** pill in preview). **`isPageStructureRowVisibleForStaticContent(row)`** is true when `defaultDisplay !== 'hide'`. Saved row order drives Static Content (Show rows only) and Dynamic Content (all rows) downstream.
 - **Static Content (`staticContentSlice` + `StaticContentEditor`):** per-row blocks (`byRowId[rowId]: StaticBlockContent[]`, length 1 for full, 2 for half-half) for **Show** rows only. **`reconcileForStaticEditor`** filters structure rows through `isPageStructureRowVisibleForStaticContent` before reconcile/save so Hide rows never get `byRowId` keys. If every row is Hide, a muted message directs users to Dynamic Content. Row labels use the **full** page-structure index (`structureRowNumber`) so numbering matches Page Structure. Editor mirrors the 2fr/1fr grid of the Dynamic editor with a **Collapse inputs** toggle that gives the preview full width. Each eligible row is its own `<details>` (new Show rows open by default; Hide row ids are dropped from `openRowIds`). Block Content Type is `text` or `imageUrl`; URL inputs validate via `isValidHttpUrl` and show an inline `static-content-invalid-hint`.
-- **Dynamic Content v2 (`eventDynamicTargetsSlice` + `DynamicContentV2Section`):** per-event `V2DynamicConfig { contentSourceMode: 'static' | 'flexible', fieldPath, targets: V2DynamicTarget[] }`. Each `V2DynamicTarget` binds mappings to a `(rowId, side)` cell (`side: null` full-width, `'A' | 'B'` for 50-50). The **Content source** Static/Flexible **fieldset + radios were removed**; `contentSourceMode` is always saved as `'static'` for back-compat. Field path is shared per event. Text variation **Content** supports **`{{api_value}}`** (see `apiValueTemplate.ts`): at preview and live resolution the token is replaced with the value at the configured `data.…` path (`interpolateApiValue` in `DynamicContentV2Section` preview and `experienceResolveV2.ts` for matched text). A muted-italic hint sits under the **Content** label for text rows. Image URL rows do not interpolate. **+ Add target**, per-target collapsibles, `dynamic-target-mapping-grid` / `dynamic-target-content-cell`, validation, and right-hand preview grid behave as before (`mappingRowMatches` → static fallback → placeholder; **Dynamic** badge on configured cells).
+- **Dynamic Content v2 (`eventDynamicTargetsSlice` + `DynamicContentV2Section`):** per-event `V2DynamicConfig { contentSourceMode, targets }` — **no global field path** (legacy persisted `fieldPath` migrates into per-condition rows). Each `V2DynamicTarget` binds **content variations** to a `(rowId, side)` cell (`side: null` full-width, `'A' | 'B'` for 50-50). Each **`V2StaticMappingRow`** has **`conditions: V2MappingCondition[]`** (field path + operator + value); **all conditions must match (AND)**; first matching variation wins. Per-condition field path uses the same **`data.`** prefix UI as v1. **+ Add condition** within a variation; Personalization JSON peek at section top (no global path input). Text **Content** supports **`{{api_value}}`** (first active condition’s value) and **`{{api_value:pathSuffix}}`** (e.g. `{{api_value:segment}}` — suffix = path after `data.`, see `apiValueTemplate.ts` / `interpolateApiValues`). Preview sidebar lists resolved values for all paths in use. Save allows draft incomplete rows; image URL validation unchanged. Matching: `mappingConditions.ts` + `mappingRowMatches` in `ruleMatch.ts`. **+ Add target**, per-target collapsibles, preview grid, **Dynamic** badge — as before (`resolveV2Cell` → static fallback).
 - **Static Content editor (Events v2):** preview **Image URL** cells use **edge-to-edge** rendering: `.page-structure-preview-block:has(> .static-content-preview-image)` drops cell padding/min-height and flex-centering; `.static-content-preview-image` is `width: 100%` / `height: auto` so the image fills the row (`index.css`). The same image treatment applies to **Dynamic Content v2** preview cells and **Experiences v2** live cells (`.mock-experience-v2-cell-image` + `:has` on `.mock-experience-v2-cell`).
-- **Experiences v2 (`MockExperienceV2Card` + `MockExperienceV2LiveRegion`):** `MockContentPage` branches on `scopeId`; v2 lists events with any saved pageStructure / staticContent / eventDynamicTargets. Card: `<details class="card mock-experience-card mock-experience-v2-card">` + `getEventThemeStyle(eventId)`. **Expand/collapse** is controlled: `open={cardExpanded}` from Redux **`experienceV2CardExpandSlice`** (`expandedByEventId`, persisted on v2 store). **`onToggle`** syncs `expanded` from `e.currentTarget.open` (do **not** `preventDefault()` on `toggle` or flip `!cardExpanded` — that fought React and caused open/closed flashing after navigation/rehydrate). **Summary** (`mock-experience-v2-summary`): first row (`mock-experience-v2-summary-inner`) — disclosure triangle, **Event Name** `h2`, **Trigger {event} Event** (`mock-experience-v2-summary-trigger`, `preventDefault`/`stopPropagation`). **Second row** (`mock-experience-v2-summary-actions`, below the title row): optional “Publish succeeded — use **Refresh Experience**…” copy, then **Refresh Experience** and **Reset to Default Experience** (same `btn-primary` + `mock-event-trigger-btn` accent and press invert as Trigger; `stopPropagation` on the actions strip and each button). Refresh/reset **state** (`personalizationData`, `displaySource`, `loading`, `hasEverRefreshed`, `runRefresh`, `resetToDefaultExperience`) lives on **`MockExperienceV2Card`** and is passed into **`MockExperienceV2LiveRegion`** as `personalizationData`, `loading`, `forceDefault` only — the live region is just the simulated “page” strip (`mock-experience-v2-live-region`): **`background: var(--text)`** canvas with dark readable chrome copy; inner preview cells reset **`color: var(--text)`** on `--surface` blocks. **Hide rows in the live preview:** rows with `defaultDisplay === 'hide'` are **omitted** when `forceDefault` (default experience / Reset). After refresh (`forceDefault === false`), a Hide row renders **only if at least one cell** resolves with `source === 'matched'` from dynamic mappings; Hide rows never use static fallback in the live region (`resolveV2Cell` gets `undefined` static block). The old “Live experience” **h3** + long lede **`<p>`** in the live region were **removed**. CSS: `.mock-experience-v2-summary-actions` (top border, spacing), summary **`.btn-primary`** gets `appearance: none` / `font: inherit` to match Trigger paint inside `<summary>`.
+- **Experiences v2 (`MockExperienceV2Card` + `MockExperienceV2LiveRegion`):** `MockContentPage` branches on `scopeId`; v2 lists events with any saved pageStructure / staticContent / eventDynamicTargets. Card: `<details class="card mock-experience-card mock-experience-v2-card">` + `getEventThemeStyle(eventId)`. **Expand/collapse** is controlled: `open={cardExpanded}` from Redux **`experienceV2CardExpandSlice`** (`expandedByEventId`, persisted on v2 store). **`onToggle`** syncs `expanded` from `e.currentTarget.open` (do **not** `preventDefault()` on `toggle` or flip `!cardExpanded` — that fought React and caused open/closed flashing after navigation/rehydrate). **Summary** (`mock-experience-v2-summary`): first row (`mock-experience-v2-summary-inner`) — disclosure triangle, **Event Name** `h2`, **Trigger {event} Event** (`mock-experience-v2-summary-trigger`, `preventDefault`/`stopPropagation`). **Second row** (`mock-experience-v2-summary-actions`, below the title row): optional “Publish succeeded — use **Refresh Experience**…” copy, then **Refresh Experience** and **Reset to Default Experience** (same `btn-primary` + `mock-event-trigger-btn` accent and press invert as Trigger; `stopPropagation` on the actions strip and each button). Refresh/reset **state** (`personalizationData`, `displaySource`, `loading`, `hasEverRefreshed`, `runRefresh`, `resetToDefaultExperience`) lives on **`MockExperienceV2Card`** and is passed into **`MockExperienceV2LiveRegion`** as full **`personalizationResponse.data`** profile object (not a single pre-resolved scalar). Live region calls **`resolveV2Cell`** with that profile for multi-condition / nested-path rules. Simulated “page” strip (`mock-experience-v2-live-region`): **`background: var(--text)`** canvas; inner cells use `--surface` text color. **Hide rows:** omitted when `forceDefault`; after refresh, Hide rows appear only if a cell **`source === 'matched'`**; no static fallback for Hide rows in live view. CSS: `.mock-experience-v2-summary-actions`, summary **`.btn-primary`** `appearance: none` / `font: inherit`.
+
+### Condition operators & Personalization field paths (`ruleMatch.ts`, `mappingConditions.ts`, `relativeDateMatch.ts`)
+
+Shared by **v1** (single global path per event) and **v2** (path per condition). Resolution uses **`getAtPath`** on `{ data: personalizationResponse.data }` (`personalizationFieldPath.ts`). Dot segments work for nested keys, including numeric object keys (e.g. UI suffix `audiences.37124` → `data.audiences.37124`).
+
+| Operator | Threshold | Behavior |
+|----------|-------------|----------|
+| Equals / Not equal / GT / LT / GTE / LTE | Example API response value | String compare (ordering ops need finite numbers) |
+| **Is null** / **Is not null** | Ignored (disabled in UI) | `undefined` or JSON `null` vs anything else. Use **`audiences.37124`** + **Is not null** for “audience key exists” (resolves to object). |
+| **Occurred within the last** / **Did not occur within the last** | **Days** (e.g. `7`, `7 days`) | Parse resolved value as ISO date/time (`Date.parse`); true if instant ∈ `[now − X×24h, now]` (inclusive). Future dates do not match “occurred”. Reference **`Date.now()`** when the rule runs (preview / Experiences refresh). |
+
+Legacy v2 rows (operator + value only, no `conditions[]`) normalize to one condition using migrated global **`fieldPath`** on load (`normalizeV2StaticMappingRow` in `eventDynamicTargetsSlice.ts`).
 
 ### Personalization API page (`client/src/pages/PersonalizationPage.tsx`)
 
@@ -235,6 +249,28 @@ Redux persist whitelist includes `mockEvents`, **`eventPayloads`**, `eventDynami
 6. **Header nav:**
    - Primary tabs: **Events** / **Experiences** (v2 routes). v1 **Events v1** / **Experiences v1** links removed from header (routes still reachable by URL).
 
+### Post–May 17, 2026 session (Dynamic Content v2 conditions, schema, operators)
+
+1. **v2 multi-condition AND (v2 only):**
+   - Removed global **Field path to target API response value** from `DynamicContentV2Section`; paths live on each condition inside each **Content Variation**.
+   - `V2StaticMappingRow` now has **`conditions: { fieldPath, operator, value }[]`**; all active conditions must match. **`mappingConditions.ts`** implements AND + `resolvedValuesByPathSuffix`.
+   - Legacy persisted config: global `fieldPath` + row-level operator/value migrates to a one-element `conditions` array on load.
+   - Text tokens: **`{{api_value}}`** (first active condition) and **`{{api_value:segment}}`** (suffix after `data.`) via **`interpolateApiValues`** in `apiValueTemplate.ts`.
+   - Save no longer strips incomplete variations; no global field-path validation on save.
+
+2. **`customer_id` schema type:**
+   - Locked key still required; type dropdown enabled with **string** or **number** only (`CUSTOMER_ID_FIELD_TYPES`, `SchemaEditor.tsx`).
+   - Client + server validation updated (`mockEventSchemaRules.ts`, `server/src/types.ts`).
+
+3. **Existence operators (v1 + v2):**
+   - **Is null** / **Is not null** in `ruleMatch.ts`; example value disabled via **`ConditionOperatorValueField`**.
+
+4. **Relative date operators (v1 + v2):**
+   - **Occurred within the last** / **Did not occur within the last** with **Days** threshold; logic in **`relativeDateMatch.ts`** (`parseResolvedInstant`, `occurredWithinLastDays`).
+   - Intended for ISO strings on the Personalization profile (e.g. `date_last_visit_billing`). Evaluated against **`Date.now()`** at match time.
+
+5. **Shared threshold UI:** **`ConditionOperatorValueField.tsx`** — dynamic label/placeholder/disabled state from **`operatorThresholdKind`** (`example` | `days` | `none`).
+
 ## Build / deploy hints
 
 - **Vercel:** Root = repo root (where `vercel.json` + `api/` + `client/` live). Preset **Other**; build/output driven by `vercel.json`. SPA rewrite excludes `/api/*`.
@@ -244,7 +280,7 @@ Redux persist whitelist includes `mockEvents`, **`eventPayloads`**, `eventDynami
 1. **Personalization request parity:** If backend-only mode should mirror the Vercel proxy’s POST body for **non–mock-event** flows, align Fastify generic GET vs POST (mock-event refresh already sends **`customerId`** from payload).
 2. **Fastify Kafka body:** If using KafkaJS path, confirm record **value** matches what GrowthLoop expects (Vercel REST path sends `payload` only).
 3. **`example_event_bridge`:** Ignored by git; keep a separate clone if you need the Python reference in-repo.
-4. **Legacy events:** Schemas created before the **`customer_id`** rule may still exist in persisted state; editing/recreating may be needed for refresh to succeed until schema includes root **`customer_id`** (string).
+4. **Legacy events:** Schemas created before the **`customer_id`** rule may still exist in persisted state; editing/recreating may be needed for refresh until schema includes root **`customer_id`** (string or number). Legacy v2 dynamic config without `conditions[]` migrates on load.
 
 ## Key source files (quick index)
 
@@ -261,7 +297,9 @@ Redux persist whitelist includes `mockEvents`, **`eventPayloads`**, `eventDynami
 - Trigger-time ISO injection (client): `client/src/lib/injectTriggerTimestamps.ts`
 - Trigger-time ISO injection (server): `server/src/lib/injectTriggerTimestamps.ts`
 - Server payload validation (`date`, `timestamp`, nested): `server/src/lib/validatePayload.ts`
-- Rules + operators (v1): `client/src/store/eventDynamicRulesSlice.ts`, `client/src/lib/ruleMatch.ts`, `client/src/lib/experienceResolve.ts` (`forceDefault` option)
+- Rules + operators (v1): `client/src/store/eventDynamicRulesSlice.ts`, `client/src/lib/ruleMatch.ts`, `client/src/lib/relativeDateMatch.ts`, `client/src/lib/experienceResolve.ts` (`forceDefault` option)
+- Condition threshold UI: `client/src/components/ConditionOperatorValueField.tsx`
+- v2 AND conditions: `client/src/lib/mappingConditions.ts`
 - Field path `data.` helpers: `client/src/lib/personalizationFieldPath.ts`
 - Panel title suffix for Experiences header: `client/src/lib/panelTitle.ts`
 - Per-event card/button accents: `client/src/lib/eventTheme.ts`
@@ -282,8 +320,8 @@ Redux persist whitelist includes `mockEvents`, **`eventPayloads`**, `eventDynami
 - Page Structure (`defaultDisplay`, layout types, static visibility helper): `client/src/store/pageStructureSlice.ts`, `client/src/components/PageStructureEditor.tsx`
 - Experiences v2 card expand (persisted): `client/src/store/experienceV2CardExpandSlice.ts`
 - Static Content: `client/src/store/staticContentSlice.ts`, `client/src/components/StaticContentEditor.tsx`
-- Dynamic Content v2 slice + editor: `client/src/store/eventDynamicTargetsSlice.ts`, `client/src/components/DynamicContentV2Section.tsx`
-- `{{api_value}}` template helper (v2 dynamic text Content interpolation): `client/src/lib/apiValueTemplate.ts`
+- Dynamic Content v2 slice + editor: `client/src/store/eventDynamicTargetsSlice.ts`, `client/src/components/DynamicContentV2Section.tsx` (per-condition paths; no global `fieldPath` at runtime)
+- `{{api_value}}` / `{{api_value:path}}` templates: `client/src/lib/apiValueTemplate.ts`
 - Dynamic content rules section (v1/v2 branch): `client/src/components/DynamicContentRulesSection.tsx`
 - Experiences v2 card + live region + resolver: `client/src/components/MockExperienceV2Card.tsx`, `client/src/components/MockExperienceV2LiveRegion.tsx`, `client/src/lib/experienceResolveV2.ts`
 - Experiences page (v1/v2 branch): `client/src/pages/MockContentPage.tsx`
@@ -291,4 +329,4 @@ Redux persist whitelist includes `mockEvents`, **`eventPayloads`**, `eventDynami
 
 ---
 
-*Last aligned with implementation in this workspace as of **May 17, 2026**: prior **May 12–14** polish (image previews, Experiences v2 summary actions, `{{api_value}}`, **`timestamp`** / **`injectTriggerTimestamps`**, trigger press feedback); plus **May 17** — Page Structure **Default Display** Show/Hide, Static Content filtered to Show rows, Experiences v2 Hide-row live rendering rules, **`experienceV2CardExpand`** persist + controlled-details toggle fix, header nav showing v2 as **Events** / **Experiences** with v1 tabs hidden, and **`PageStructureRowLayout`** type export for production builds.*
+*Last aligned with implementation in this workspace as of **May 19, 2026**: prior **May 17** work (Page Structure Show/Hide, Experiences v2 polish, header nav); plus **post–May 17** — v2 **multi-condition AND** (per-condition `data.*` paths, `{{api_value:suffix}}`), **`customer_id`** type **string | number**, operators **Is null** / **Is not null** / **Occurred within the last** / **Did not occur within the last** (days), **`ConditionOperatorValueField`**, **`mappingConditions.ts`**, **`relativeDateMatch.ts`**, and v2 live resolution against full profile data in **`MockExperienceV2LiveRegion` / `resolveV2Cell`**.*

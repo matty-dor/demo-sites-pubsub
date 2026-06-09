@@ -1132,6 +1132,56 @@ a {
   font-style: italic;
 }
 
+/* GrowthLoop API page */
+.growthloop-api-page .growthloop-api-section {
+  margin-top: 1.25rem;
+  padding: 1rem 1.1rem;
+  text-align: left;
+}
+
+.growthloop-api-section-heading {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.growthloop-api-shared-ids {
+  margin-top: 0.75rem;
+}
+
+.growthloop-api-table-wrap {
+  margin-top: 0.75rem;
+  overflow-x: auto;
+}
+
+.growthloop-api-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.growthloop-api-table th,
+.growthloop-api-table td {
+  padding: 0.4rem 0.55rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.growthloop-api-json-query {
+  margin-top: 0.75rem;
+}
+
+.growthloop-api-response {
+  margin-top: 0.75rem;
+}
+
+.growthloop-api-response-heading {
+  margin: 0 0 0.35rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
 /* Page Structure editor (Events v2) */
 .page-structure-editor {
   display: grid;

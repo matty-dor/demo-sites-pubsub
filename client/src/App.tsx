@@ -4,6 +4,7 @@ import { HomePage } from './pages/HomePage'
 import { CreateMockEventPage } from './pages/CreateMockEventPage'
 import { EditMockEventPage } from './pages/EditMockEventPage'
 import { PersonalizationPage } from './pages/PersonalizationPage'
+import { GrowthLoopApiPage } from './pages/GrowthLoopApiPage'
 import { MockContentPage } from './pages/MockContentPage'
 import { V2ScopeLayout } from './scope/V2ScopeLayout'
 
@@ -26,6 +27,7 @@ export default function App() {
           </Route>
 
           <Route path="/personalization" element={<PersonalizationPage />} />
+          <Route path="/growthloop-api" element={<GrowthLoopApiPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

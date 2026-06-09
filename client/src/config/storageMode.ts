@@ -14,3 +14,8 @@ export function personalizationHttpEnabled(): boolean {
     import.meta.env.VITE_USE_VERCEL_API === 'true'
   )
 }
+
+/** Same-origin `/api/growthloop` proxy (Fastify or Vercel `api/growthloop.js`). */
+export function growthLoopApiHttpEnabled(): boolean {
+  return personalizationHttpEnabled()
+}

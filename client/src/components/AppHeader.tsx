@@ -45,6 +45,9 @@ export function AppHeader() {
         <NavLink to="/personalization" className={navLinkClass}>
           Personalization API
         </NavLink>
+        <NavLink to="/growthloop-api" className={navLinkClass}>
+          GrowthLoop API
+        </NavLink>
       </nav>
     </header>
   )
