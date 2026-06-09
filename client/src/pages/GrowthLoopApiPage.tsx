@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { ApiError } from '../api/http'
 import { growthLoopApiHttpEnabled } from '../config/storageMode'
+import { AudienceJsonQueryBuilder } from '../components/AudienceJsonQueryBuilder'
 import {
   buildAudiencePayload,
   defaultCreateAudienceForm,
@@ -313,16 +314,10 @@ export function GrowthLoopApiPage() {
             />
           </label>
         </div>
-        <label className="stack-label growthloop-api-json-query">
-          <span>json_query (JSON)</span>
-          <textarea
-            className="input textarea"
-            rows={16}
-            value={createForm.jsonQueryText}
-            onChange={(e) => patchCreateForm({ jsonQueryText: e.target.value })}
-            spellCheck={false}
-          />
-        </label>
+        <AudienceJsonQueryBuilder
+          state={createForm.queryBuilder}
+          onChange={(queryBuilder) => patchCreateForm({ queryBuilder })}
+        />
         <div className="actions-row">
           <button
             type="button"

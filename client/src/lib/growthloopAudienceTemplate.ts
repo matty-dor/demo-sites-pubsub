@@ -1,41 +1,9 @@
-/** Default json_query shape from GrowthLoop audience create examples. */
-export const DEFAULT_JSON_QUERY = {
-  queries: {
-    base_query: {
-      join: [],
-      fields: {
-        CUSTOMER_ID: 'PUBLIC.MY_CUSTOMER_DATA.CUSTOMER_ID',
-      },
-      filter: {
-        and: [
-          {
-            operator: 'in',
-            field_name: 'PUBLIC.MY_CUSTOMER_DATA.STATE',
-            field_value: ['California', 'Oregon', 'Washington'],
-          },
-        ],
-      },
-    },
-  },
-  operation: 'base_query',
-  result_query: {
-    join: [
-      {
-        on: [
-          {
-            'operation.CUSTOMER_ID': 'PUBLIC.MY_CUSTOMER_DATA.CUSTOMER_ID',
-          },
-        ],
-        left: 'operation',
-        type: 'left',
-        right: 'PUBLIC.MY_CUSTOMER_DATA',
-      },
-    ],
-    fields: {
-      CUSTOMER_ID: 'operation.CUSTOMER_ID',
-    },
-  },
-} as const
+import {
+  compileJsonQuery,
+  defaultJsonQueryBuilderState,
+  validateJsonQueryBuilder,
+  type JsonQueryBuilderState,
+} from './growthloopJsonQueryBuilder'
 
 export type CreateAudienceFormValues = {
   teamId: string
@@ -45,7 +13,7 @@ export type CreateAudienceFormValues = {
   description: string
   treatment: string
   tags: string
-  jsonQueryText: string
+  queryBuilder: JsonQueryBuilderState
 }
 
 export const DEFAULT_TEAM_ID = '123'
@@ -60,7 +28,7 @@ export function defaultCreateAudienceForm(): CreateAudienceFormValues {
     description: 'Audience created via the PoC UI',
     treatment: '0.66',
     tags: 'tag1API',
-    jsonQueryText: JSON.stringify(DEFAULT_JSON_QUERY, null, 2),
+    queryBuilder: defaultJsonQueryBuilderState(),
   }
 }
 
@@ -85,12 +53,12 @@ export function buildAudiencePayload(
     throw new Error('name is required.')
   }
 
-  let json_query: unknown
-  try {
-    json_query = JSON.parse(form.jsonQueryText)
-  } catch {
-    throw new Error('json_query must be valid JSON.')
+  const queryErr = validateJsonQueryBuilder(form.queryBuilder)
+  if (queryErr) {
+    throw new Error(queryErr)
   }
+
+  const json_query = compileJsonQuery(form.queryBuilder)
 
   const tags = form.tags
     .split(',')
