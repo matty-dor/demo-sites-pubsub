@@ -197,36 +197,41 @@ export function GrowthLoopApiPage() {
         </div>
         <ErrorBanner error={listMutation.error} />
         {listRows.length > 0 && (
-          <div className="growthloop-api-table-wrap">
-            <table className="growthloop-api-table">
-              <thead>
-                <tr>
-                  <th scope="col">ID</th>
-                  <th scope="col">Name</th>
-                  <th scope="col" />
-                </tr>
-              </thead>
-              <tbody>
-                {listRows.map((row) => (
-                  <tr key={row.id}>
-                    <td>
-                      <code>{row.id}</code>
-                    </td>
-                    <td>{row.name}</td>
-                    <td>
-                      <button
-                        type="button"
-                        className="btn btn-secondary btn-small"
-                        onClick={() => selectDatasetGroup(row.id)}
-                      >
-                        Use id
-                      </button>
-                    </td>
+          <details className="growthloop-api-response">
+            <summary className="growthloop-api-response-summary">
+              Dataset groups ({listRows.length})
+            </summary>
+            <div className="growthloop-api-table-wrap growthloop-api-response-body">
+              <table className="growthloop-api-table">
+                <thead>
+                  <tr>
+                    <th scope="col">ID</th>
+                    <th scope="col">Name</th>
+                    <th scope="col" />
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {listRows.map((row) => (
+                    <tr key={row.id}>
+                      <td>
+                        <code>{row.id}</code>
+                      </td>
+                      <td>{row.name}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-small"
+                          onClick={() => selectDatasetGroup(row.id)}
+                        >
+                          Use id
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </details>
         )}
         <ResponseBlock title="List response" response={listMutation.data} />
       </section>
