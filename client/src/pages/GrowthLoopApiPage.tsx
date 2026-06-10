@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { ApiError } from '../api/http'
+import { CreateAudienceSection } from '../components/CreateAudienceSection'
 import { growthLoopApiHttpEnabled } from '../config/storageMode'
-import { AudienceJsonQueryBuilder } from '../components/AudienceJsonQueryBuilder'
 import {
   buildAudiencePayload,
   defaultCreateAudienceForm,
+  exampleCreateAudienceForm,
   type CreateAudienceFormValues,
 } from '../lib/growthloopAudienceTemplate'
 import {
@@ -80,6 +81,9 @@ export function GrowthLoopApiPage() {
   const [createForm, setCreateForm] = useState<CreateAudienceFormValues>(
     defaultCreateAudienceForm,
   )
+  const [exampleForm, setExampleForm] = useState<CreateAudienceFormValues>(
+    exampleCreateAudienceForm,
+  )
   const [listRows, setListRows] = useState<DatasetGroupRow[]>([])
 
   const listMutation = useMutation({
@@ -112,8 +116,23 @@ export function GrowthLoopApiPage() {
     },
   })
 
+  const exampleCreateMutation = useMutation({
+    mutationFn: () => {
+      const audience = buildAudiencePayload({
+        ...exampleForm,
+        teamId,
+        userId,
+      })
+      return createAudience(audience)
+    },
+  })
+
   function patchCreateForm(patch: Partial<CreateAudienceFormValues>) {
     setCreateForm((prev) => ({ ...prev, ...patch }))
+  }
+
+  function patchExampleForm(patch: Partial<CreateAudienceFormValues>) {
+    setExampleForm((prev) => ({ ...prev, ...patch }))
   }
 
   function selectDatasetGroup(id: string) {
@@ -267,77 +286,36 @@ export function GrowthLoopApiPage() {
 
       <section className="growthloop-api-section card">
         <h2 className="growthloop-api-section-heading">Create audience</h2>
-        <p className="muted small">
-          <code>POST /api/public/audiences</code> with body{' '}
-          <code>{'{ "audience": { … } }'}</code>.
-        </p>
-        <div className="form-grid">
-          <label className="stack-label">
-            <span>dataset_group_id</span>
-            <input
-              className="input"
-              type="text"
-              inputMode="numeric"
-              value={createForm.datasetGroupId || datasetGroupId}
-              onChange={(e) => {
-                patchCreateForm({ datasetGroupId: e.target.value })
-                setDatasetGroupId(e.target.value)
-              }}
-              placeholder="Required"
-            />
-          </label>
-          <label className="stack-label">
-            <span>name</span>
-            <input
-              className="input"
-              value={createForm.name}
-              onChange={(e) => patchCreateForm({ name: e.target.value })}
-            />
-          </label>
-          <label className="stack-label">
-            <span>description</span>
-            <input
-              className="input"
-              value={createForm.description}
-              onChange={(e) => patchCreateForm({ description: e.target.value })}
-            />
-          </label>
-          <label className="stack-label">
-            <span>treatment</span>
-            <input
-              className="input"
-              type="text"
-              inputMode="decimal"
-              value={createForm.treatment}
-              onChange={(e) => patchCreateForm({ treatment: e.target.value })}
-            />
-          </label>
-          <label className="stack-label">
-            <span>tags (comma-separated)</span>
-            <input
-              className="input"
-              value={createForm.tags}
-              onChange={(e) => patchCreateForm({ tags: e.target.value })}
-            />
-          </label>
-        </div>
-        <AudienceJsonQueryBuilder
-          state={createForm.queryBuilder}
-          onChange={(queryBuilder) => patchCreateForm({ queryBuilder })}
+        <CreateAudienceSection
+          form={createForm}
+          onFormChange={patchCreateForm}
+          datasetGroupIdFallback={datasetGroupId}
+          onDatasetGroupIdChange={setDatasetGroupId}
+          createMutation={createMutation}
+          useHttpProxy={useHttpProxy}
         />
-        <div className="actions-row">
-          <button
-            type="button"
-            className="btn btn-primary"
-            disabled={!useHttpProxy || createMutation.isPending}
-            onClick={() => createMutation.mutate()}
-          >
-            Create audience
-          </button>
-        </div>
-        <ErrorBanner error={createMutation.error} />
-        <ResponseBlock title="Create response" response={createMutation.data} />
       </section>
+
+      <details className="growthloop-api-section card growthloop-api-example-section">
+        <summary className="growthloop-api-example-summary">
+          Example: Create audience (reference)
+        </summary>
+        <div className="growthloop-api-example-body">
+          <p className="muted small">
+            Pre-filled working example with a primary-table filter, a joined orders
+            table with aggregation, and a post-join filter. Expand to study each
+            field, edit values (e.g. replace <code>yourinitials</code> in the name),
+            then click <strong>Create audience</strong> to run the same API call.
+            Uses <code>team_id</code> and <code>user_id</code> from Shared ids above.
+          </p>
+          <CreateAudienceSection
+            form={exampleForm}
+            onFormChange={patchExampleForm}
+            createMutation={exampleCreateMutation}
+            useHttpProxy={useHttpProxy}
+          />
+        </div>
+      </details>
     </div>
   )
 }

@@ -1322,6 +1322,26 @@ a {
   margin: 0.35rem 0 0.5rem;
 }
 
+.growthloop-api-example-section {
+  margin-top: 1rem;
+}
+
+.growthloop-api-example-summary {
+  cursor: pointer;
+  font-size: 1.05rem;
+  font-weight: 600;
+  user-select: none;
+  list-style-position: outside;
+}
+
+.growthloop-api-example-summary:hover {
+  color: var(--accent, var(--text));
+}
+
+.growthloop-api-example-body {
+  margin-top: 0.75rem;
+}
+
 /* Page Structure editor (Events v2) */
 .page-structure-editor {
   display: grid;
