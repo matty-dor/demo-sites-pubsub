@@ -16,8 +16,8 @@ export type CreateAudienceFormValues = {
   queryBuilder: JsonQueryBuilderState
 }
 
-export const DEFAULT_TEAM_ID = '123'
-export const DEFAULT_USER_ID = '456'
+export const DEFAULT_TEAM_ID = '420'
+export const DEFAULT_USER_ID = '2123'
 
 /** Stable id so example post-join filters reference the example join row. */
 export const EXAMPLE_JOIN_TABLE_ID = 'example-join-orders'
