@@ -1205,12 +1205,56 @@ a {
   margin-top: 0.75rem;
 }
 
+.audience-query-filter-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
 .audience-query-filter-row {
   margin-top: 0.5rem;
   padding-top: 0.5rem;
   border-top: 1px dashed var(--border);
-  grid-template-columns: minmax(8rem, 10rem) 1fr 1.2fr auto;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
   align-items: end;
+}
+
+.audience-query-filter-groups {
+  margin-top: 0.75rem;
+}
+
+.audience-query-filter-group {
+  margin-top: 0.5rem;
+}
+
+.audience-query-checkbox {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.audience-query-checkbox input {
+  width: auto;
+}
+
+.audience-query-aggregate-section {
+  margin-top: 0.5rem;
+}
+
+.audience-query-aggregates {
+  margin-top: 0.5rem;
+}
+
+.audience-query-aggregate-row {
+  margin-top: 0.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  align-items: end;
+}
+
+.audience-query-post-join {
+  margin-top: 1rem;
 }
 
 .audience-query-filter-actions {
