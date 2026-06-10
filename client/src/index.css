@@ -1258,11 +1258,24 @@ a {
   margin-top: 0.75rem;
 }
 
-.growthloop-api-response-heading {
-  margin: 0 0 0.35rem;
+.growthloop-api-response-summary {
+  cursor: pointer;
   font-size: 0.9rem;
   font-weight: 600;
   color: var(--muted);
+  user-select: none;
+}
+
+.growthloop-api-response-summary:hover {
+  color: var(--text);
+}
+
+.growthloop-api-response-body {
+  margin-top: 0.5rem;
+}
+
+.audience-query-preview-lede {
+  margin: 0.35rem 0 0.5rem;
 }
 
 /* Page Structure editor (Events v2) */

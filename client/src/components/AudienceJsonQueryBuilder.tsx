@@ -308,11 +308,17 @@ export function AudienceJsonQueryBuilder({ state, onChange }: Props) {
         ))}
       </div>
 
-      <div className="audience-query-preview">
-        <h4 className="audience-query-section-title">Compiled json_query</h4>
-        <p className="muted small">Read-only preview of what will be sent in the API body.</p>
-        <pre className="result-block">{JSON.stringify(compiled, null, 2)}</pre>
-      </div>
+      <details className="audience-query-preview growthloop-api-response">
+        <summary className="growthloop-api-response-summary">
+          Compiled json_query
+        </summary>
+        <p className="muted small audience-query-preview-lede">
+          Read-only preview of what will be sent in the API body.
+        </p>
+        <pre className="result-block growthloop-api-response-body">
+          {JSON.stringify(compiled, null, 2)}
+        </pre>
+      </details>
     </div>
   )
 }

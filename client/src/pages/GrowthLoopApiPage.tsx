@@ -63,10 +63,12 @@ function ResponseBlock({
 }) {
   if (!response) return null
   return (
-    <section className="growthloop-api-response">
-      <h3 className="growthloop-api-response-heading">{title}</h3>
-      <pre className="result-block">{JSON.stringify(response, null, 2)}</pre>
-    </section>
+    <details className="growthloop-api-response">
+      <summary className="growthloop-api-response-summary">{title}</summary>
+      <pre className="result-block growthloop-api-response-body">
+        {JSON.stringify(response, null, 2)}
+      </pre>
+    </details>
   )
 }
 
