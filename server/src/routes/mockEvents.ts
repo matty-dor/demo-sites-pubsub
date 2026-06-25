@@ -1,8 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { mockEventSchema } from '../types.js';
 import { getSupabase } from '../lib/supabase.js';
-import { env } from '../env.js';
-import { kafkaConfigured, publishEvent } from '../lib/kafka.js';
 import {
   PayloadValidationError,
   validatePayloadAgainstSchema,
@@ -142,27 +140,16 @@ export async function mockEventsRoutes(app: FastifyInstance) {
       publishedAt: new Date().toISOString(),
     };
 
-    if (!kafkaConfigured()) {
-      app.log.warn(
-        { envelope },
-        'Kafka not configured — event not sent (dev fallback)',
-      );
-      return {
-        ok: true,
-        mode: 'simulated',
-        message:
-          'Kafka is not configured on this server. Payload was validated only. Set KAFKA_BROKERS and KAFKA_TOPIC to publish for real.',
-        envelope,
-      };
-    }
-
-    try {
-      await publishEvent(envelope);
-      return { ok: true, mode: 'kafka', topic: env.kafkaTopic, envelope };
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      reply.code(502);
-      return { error: `Kafka publish failed: ${msg}` };
-    }
+    app.log.warn(
+      { envelope },
+      'Publish not configured on Fastify — payload validated only (use Vercel /api/publish for Pub/Sub)',
+    );
+    return {
+      ok: true,
+      mode: 'simulated',
+      message:
+        'Fastify does not publish to Pub/Sub. Deploy with VITE_PUBLISH_URL=/api/publish on Vercel to send events.',
+      envelope,
+    };
   });
 }

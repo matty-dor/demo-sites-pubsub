@@ -29,12 +29,6 @@ export const env = {
   growthloopApiBaseUrl: optional('GROWTHLOOP_API_BASE_URL'),
   growthloopApiToken: optional('GROWTHLOOP_API_TOKEN'),
   growthloopApiAccessKey: optional('GROWTHLOOP_API_ACCESS_KEY'),
-
-  kafkaBrokers: optional('KAFKA_BROKERS'),
-  kafkaTopic: optional('KAFKA_TOPIC'),
-  kafkaUsername: optional('KAFKA_USERNAME'),
-  kafkaPassword: optional('KAFKA_PASSWORD'),
-  kafkaSsl: process.env.KAFKA_SSL !== 'false',
 };
 
 export function assertSupabase(): { url: string; key: string } {

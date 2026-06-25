@@ -1,4 +1,4 @@
-/** Canonical Kafka / GrowthLoop property identifying which mock event produced the payload. */
+/** Canonical GrowthLoop property identifying which mock event produced the payload. */
 export const EVENT_TYPE_KEY = 'event_type' as const
 
 /**

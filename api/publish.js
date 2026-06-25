@@ -1,32 +1,20 @@
 /**
- * Vercel serverless: publish GrowthLoop-shaped event JSON to Confluent via REST Produce API.
- * Same pattern as example_event_bridge/vercel_kafka_shopify_checkouts_create/app.py
+ * Vercel serverless: publish GrowthLoop-shaped event JSON to Google Cloud Pub/Sub.
  *
- * Env: KAFKA_REST_HOST, KAFKA_CLUSTER_ID, KAFKA_TOPIC, KAFKA_API_KEY, KAFKA_API_SECRET
- * Optional: PUBLISH_INGRESS_SECRET — require Authorization: Bearer <secret>
- * Optional: ALLOWED_ORIGINS — comma-separated CORS origins (default *)
+ * Env (runtime):
+ *   GCP_PROJECT_ID
+ *   GCP_PUBSUB_TOPIC          — topic ID only (e.g. demo-events), not the full resource path
+ *   GCP_SERVICE_ACCOUNT_JSON  — service account key JSON (single string; needs roles/pubsub.publisher)
  *
- * KAFKA_REST_HOST: hostname only (from Confluent Cloud → Cluster → "REST endpoint" / Kafka REST).
- *   Strip https:// if pasted; do not use :9092 bootstrap ports here — REST is HTTPS (443).
+ * Optional:
+ *   PUBLISH_INGRESS_SECRET — require Authorization: Bearer <secret>
+ *   ALLOWED_ORIGINS        — comma-separated CORS origins (default *)
+ *
+ * Message data is JSON: { event_type, …payloadFields }. event_type is set from the request
+ * eventName when missing so GrowthLoop can route on event type.
  */
 
-function normalizeKafkaRestHost(raw) {
-  if (!raw || typeof raw !== 'string') return ''
-  let h = raw.trim()
-  h = h.replace(/^https?:\/\//i, '')
-  const slash = h.indexOf('/')
-  if (slash !== -1) h = h.slice(0, slash)
-  if (/:\d+$/.test(h)) {
-    const port = h.match(/:(\d+)$/)?.[1]
-    h = h.replace(/:\d+$/, '')
-    if (port === '9092') {
-      /* bootstrap-style host; REST still uses 443 */
-    } else if (port && port !== '443') {
-      h += `:${port}`
-    }
-  }
-  return h
-}
+const { PubSub } = require('@google-cloud/pubsub')
 
 function corsHeaders(req) {
   const raw = process.env.ALLOWED_ORIGINS
@@ -45,6 +33,35 @@ function corsHeaders(req) {
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   }
+}
+
+/** @param {string} eventName @param {Record<string, unknown>} payload */
+function withEventType(eventName, payload) {
+  const name = (eventName || '').trim() || 'event'
+  const { event_type: _omit, ...rest } = payload
+  return { event_type: name, ...rest }
+}
+
+let pubsubClient = null
+
+function getPubSubClient() {
+  if (pubsubClient) return pubsubClient
+
+  const projectId = (process.env.GCP_PROJECT_ID || '').trim()
+  const rawJson = process.env.GCP_SERVICE_ACCOUNT_JSON
+  if (!projectId || !rawJson) {
+    throw new Error('GCP_PROJECT_ID and GCP_SERVICE_ACCOUNT_JSON are required')
+  }
+
+  let credentials
+  try {
+    credentials = JSON.parse(rawJson)
+  } catch {
+    throw new Error('GCP_SERVICE_ACCOUNT_JSON is not valid JSON')
+  }
+
+  pubsubClient = new PubSub({ projectId, credentials })
+  return pubsubClient
 }
 
 module.exports = async function handler(req, res) {
@@ -72,16 +89,13 @@ module.exports = async function handler(req, res) {
     }
   }
 
-  const host = normalizeKafkaRestHost(process.env.KAFKA_REST_HOST || '')
-  const clusterId = (process.env.KAFKA_CLUSTER_ID || '').trim()
-  const topic = process.env.KAFKA_TOPIC || 'vercel_checkout_create'
-  const apiKey = process.env.KAFKA_API_KEY
-  const apiSecret = process.env.KAFKA_API_SECRET
+  const topicName = (process.env.GCP_PUBSUB_TOPIC || '').trim()
+  const projectId = (process.env.GCP_PROJECT_ID || '').trim()
 
-  if (!host || !clusterId || !apiKey || !apiSecret) {
+  if (!projectId || !topicName) {
     res.status(500).json({
       error:
-        'Kafka REST not configured. Set KAFKA_REST_HOST, KAFKA_CLUSTER_ID, KAFKA_API_KEY, KAFKA_API_SECRET (and optionally KAFKA_TOPIC).',
+        'Pub/Sub not configured. Set GCP_PROJECT_ID, GCP_PUBSUB_TOPIC, and GCP_SERVICE_ACCOUNT_JSON.',
     })
     return
   }
@@ -98,80 +112,44 @@ module.exports = async function handler(req, res) {
 
   const { payload, eventName, mockEventId } = body || {}
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-    res.status(400).json({ error: 'Body must include a JSON object "payload" (GrowthLoop properties)' })
+    res.status(400).json({
+      error: 'Body must include a JSON object "payload" (GrowthLoop properties)',
+    })
     return
   }
 
-  const kafkaRestBody = {
-    value: {
-      type: 'JSON',
-      data: payload,
-    },
-  }
+  const messagePayload = withEventType(
+    typeof eventName === 'string' ? eventName : '',
+    payload,
+  )
+  const dataBuffer = Buffer.from(JSON.stringify(messagePayload), 'utf8')
 
-  const endpoint = `https://${host}/kafka/v3/clusters/${clusterId}/topics/${encodeURIComponent(topic)}/records`
-  const basic = Buffer.from(`${apiKey}:${apiSecret}`, 'utf8').toString('base64')
-
-  let cfRes
+  let messageId
   try {
-    cfRes = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Basic ${basic}`,
-      },
-      body: JSON.stringify(kafkaRestBody),
-    })
+    messageId = await getPubSubClient()
+      .topic(topicName)
+      .publishMessage({ data: dataBuffer })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    console.error('[api/publish] Confluent fetch error', { host, clusterId, topic, message: msg })
+    console.error('[api/publish] Pub/Sub publish error', { projectId, topicName, message: msg })
     res.status(502).json({
-      error: `Confluent request failed: ${msg}`,
-      hint: 'Check KAFKA_REST_HOST (REST hostname, not schema registry URL). See cluster Endpoints in Confluent Cloud.',
-    })
-    return
-  }
-
-  const text = await cfRes.text()
-  let parsed = null
-  try {
-    parsed = text ? JSON.parse(text) : null
-  } catch {
-    parsed = { raw: text }
-  }
-
-  if (!cfRes.ok) {
-    console.error('[api/publish] Confluent REST non-OK', {
-      status: cfRes.status,
-      host,
-      clusterId,
-      topic,
-      details: parsed,
-    })
-    res.status(502).json({
-      error: 'Confluent REST rejected the produce request',
-      status: cfRes.status,
-      details: parsed,
+      error: `Pub/Sub publish failed: ${msg}`,
       hint:
-        cfRes.status === 401 || cfRes.status === 403
-          ? 'Use a Confluent Cloud API key that can produce to this cluster (often same key as Kafka clients; not Schema Registry-only).'
-          : cfRes.status === 404
-            ? 'Check KAFKA_CLUSTER_ID (lkc-…) and KAFKA_TOPIC exist in this cluster.'
-            : 'Compare KAFKA_REST_HOST with Confluent Cloud → Cluster → REST / Kafka API endpoint hostname.',
+        'Check GCP_SERVICE_ACCOUNT_JSON (valid JSON with pubsub.publisher on the topic), GCP_PROJECT_ID, and GCP_PUBSUB_TOPIC.',
     })
     return
   }
 
   res.status(200).json({
     ok: true,
-    mode: 'confluent-rest',
-    topic,
+    mode: 'pubsub',
+    topic: topicName,
+    messageId,
     envelope: {
       eventName: eventName ?? null,
       mockEventId: mockEventId ?? null,
-      payload,
+      payload: messagePayload,
       publishedAt: new Date().toISOString(),
     },
-    confluent: parsed,
   })
 }

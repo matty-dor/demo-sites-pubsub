@@ -6,9 +6,12 @@ import { injectTriggerTimestamps } from '../lib/injectTriggerTimestamps'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
 import { markExperienceAwaitingRefresh } from '../store/experienceRefreshSlice'
 
-const confluentPublishUrl = (import.meta.env.VITE_CONFLUENT_PUBLISH_URL as string | undefined)?.trim()
+const publishUrl = (
+  (import.meta.env.VITE_PUBLISH_URL as string | undefined) ??
+  (import.meta.env.VITE_CONFLUENT_PUBLISH_URL as string | undefined)
+)?.trim()
 
-async function publishViaConfluentRest(input: {
+async function publishViaIngress(input: {
   payload: Record<string, unknown>
   eventName: string
   mockEventId: string
@@ -19,13 +22,14 @@ async function publishViaConfluentRest(input: {
   error?: string
   path?: string
   envelope?: unknown
-  confluent?: unknown
+  messageId?: string
+  topic?: string
 }> {
   const headers: Record<string, string> = { 'content-type': 'application/json' }
   const secret = (import.meta.env.VITE_PUBLISH_INGRESS_SECRET as string | undefined)?.trim()
   if (secret) headers.authorization = `Bearer ${secret}`
 
-  const res = await fetch(confluentPublishUrl!, {
+  const res = await fetch(publishUrl!, {
     method: 'POST',
     headers,
     body: JSON.stringify({
@@ -55,7 +59,8 @@ async function publishViaConfluentRest(input: {
     ok?: boolean
     mode?: string
     envelope?: unknown
-    confluent?: unknown
+    messageId?: string
+    topic?: string
   }
 }
 
@@ -78,8 +83,8 @@ export function useMockEventPublish() {
     }) => {
       const schema = reduxEvents.find((e) => e.id === id)?.schema ?? []
       const payloadToSend = injectTriggerTimestamps(schema, payload)
-      if (confluentPublishUrl) {
-        return publishViaConfluentRest({
+      if (publishUrl) {
+        return publishViaIngress({
           payload: payloadToSend,
           eventName,
           mockEventId: id,
@@ -121,7 +126,7 @@ export function useMockEventPublish() {
       const schema = reduxEvents.find((e) => e.id === id)?.schema ?? []
       const payloadToSend = injectTriggerTimestamps(schema, payload)
 
-      if (confluentPublishUrl || backend) {
+      if (publishUrl || backend) {
         publishRemote.mutate({ id, payload: payloadToSend, eventName: name })
         return
       }
@@ -135,7 +140,7 @@ export function useMockEventPublish() {
         ok: true,
         mode: 'simulated-local',
         message:
-          'No API server — this envelope exists only in the browser. Enable VITE_USE_BACKEND=true and deploy the API when you are ready.',
+          'No publish URL — this envelope exists only in the browser. Set VITE_PUBLISH_URL=/api/publish on Vercel when you are ready.',
         envelope,
       }
       setPublishStatus((s) => ({ ...s, [id]: JSON.stringify(body, null, 2) }))
