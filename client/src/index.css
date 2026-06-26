@@ -34,11 +34,27 @@ body {
   min-height: 100vh;
 }
 
+.app-header-meta-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
 .app-header-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
+}
+
+.app-header-org-team {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
 }
 
 .demo-reset {

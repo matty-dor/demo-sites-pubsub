@@ -31,9 +31,15 @@ export function AppHeader() {
           )}
         </div>
       </div>
-      <div className="app-header-meta">
-        <StorageModeBadge />
-        <DemoResetButton />
+      <div className="app-header-meta-column">
+        <div className="app-header-meta">
+          <StorageModeBadge />
+          <DemoResetButton />
+        </div>
+        <div className="app-header-org-team">
+          <div>Org: trumanshow</div>
+          <div>Team: Retail & CPG</div>
+        </div>
       </div>
       <nav className="app-nav">
         <NavLink to="/v2" end className={navLinkClass}>
